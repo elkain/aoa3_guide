@@ -238,12 +238,12 @@ function element(id) {
   vm.runInContext("wikiState.excluded=[];wikiState.search=2",context);
   assert.equal(vm.runInContext("rows.filter(r=>r.type==='map'&&wikiMapAllowed(r.id)).length",context),2);
   vm.runInContext("wikiState.search=0;wikiState.moneyMode='repeat';openWiki('money')",context);
-  assert.match(element('wiki-article').innerHTML,/현재 왕국 돈 수급 1위/);
-  assert.equal((element('wiki-article').innerHTML.match(/class="wiki-money-entry"/g)||[]).length,1);
+  assert.match(element('wiki-article').innerHTML,/현재 왕국 돈 수급 1~5위/);
+  assert.equal((element('wiki-article').innerHTML.match(/class="wiki-money-entry"/g)||[]).length,5);
   assert.equal(vm.runInContext("wikiMoneyCandidates().every(x=>wikiFloorAllowed(x.floor)&&x.total>0)",context),true);
   assert.equal(vm.runInContext("wikiMoneyCandidates().every((x,i,a)=>!i||a[i-1].total>=x.total)",context),true);
-  assert.match(element('wiki-article').innerHTML,/비용 차감 전 수입/);
-  assert.match(element('wiki-article').innerHTML,/실측 평균이 아닌 조건부 추정치/);
+  assert.match(element('wiki-article').innerHTML,/비용 차감 전/);
+  assert.match(element('wiki-article').innerHTML,/보정에 사용하지 않은 다른 던전/);
   vm.runInContext("openWiki('party')",context);
   for(const text of ['회복과 소생','상자와 함정 탐색','재료 수급 효율','직업 문서'])assert.ok(element('wiki-article').innerHTML.includes(text),text);
   vm.runInContext("openWiki('progress')",context);
@@ -280,18 +280,18 @@ function element(id) {
   assert.match(element('detail-body').innerHTML,/층 ↗/);
 
   // Independent arithmetic fixture: one 20-tick corridor, one guaranteed node
-  // taking 40 ticks, no battles/chests, five seconds per tick = 300s/cycle.
-  vm.runInContext("globalThis.savedYield={...yieldSettings};globalThis.savedKingdom=wikiState.kingdom;yieldSettings={...YIELD_DEFAULTS,overheadSeconds:0};wikiState.kingdom=0;records['test-road']={type:'road',fields:{isRoom:0,moveTime:20}};records['test-dungeon']={fields:{moveTime:1}};records['test-tool']={id:'test-tool',type:'item',fields:{canGetMaterial:{ref:'test-material'},getMaterialTime:40}};records['test-material']={type:'material'};rows.push(records['test-tool']);globalThis.testFloor={id:'test-floor',dungeons:['test-dungeon'],fields:{roads:[{roadMaster:{ref:'test-road'},appearanceRate:1}],materialInfos:[{materialMaster:{ref:'test-material'},frequency:5,isRoom:0}],monsterInfos:[],chestInfos:[],maxMonsterAppearanceCount:1}};globalThis.testModel=yieldFloorModel(testFloor);",context);
-  assert.equal(probability('testModel.cycleSeconds'),300);
-  assert.equal(probability('testModel.visits'),120);
+  // taking 40 ticks, no battles/chests, ten real seconds per tick = 600s/cycle.
+  vm.runInContext("globalThis.savedYield={...yieldSettings};globalThis.savedKingdom=wikiState.kingdom;yieldSettings={...YIELD_DEFAULTS,food:0,overheadSeconds:0};wikiState.kingdom=0;records['test-road']={type:'road',fields:{isRoom:0,moveTime:20}};records['test-dungeon']={fields:{moveTime:1}};records['test-tool']={id:'test-tool',type:'item',fields:{canGetMaterial:{ref:'test-material'},getMaterialTime:40}};records['test-material']={type:'material'};rows.push(records['test-tool']);globalThis.testFloor={id:'test-floor',dungeons:['test-dungeon'],fields:{roads:[{roadMaster:{ref:'test-road'},appearanceRate:1}],materialInfos:[{materialMaster:{ref:'test-material'},frequency:5,isRoom:0}],monsterInfos:[],chestInfos:[],maxMonsterAppearanceCount:1}};globalThis.testModel=yieldFloorModel(testFloor);",context);
+  assert.equal(probability('testModel.cycleSeconds'),600);
+  assert.equal(probability('testModel.visits'),60);
   assert.equal(probability("testModel.materials.get('test-material').gather"),1);
-  assert.equal(probability('yieldTotals(testModel.visits).total'),2400);
-  assert.equal(probability('yieldTotals(testModel.visits).perHour'),12);
+  assert.equal(probability('yieldTotals(testModel.visits).total'),1200);
+  assert.equal(probability('yieldTotals(testModel.visits).perHour'),6);
   vm.runInContext("yieldSettings.runs=40;globalThis.doubleModel=yieldFloorModel(testFloor)",context);
-  assert.equal(probability('doubleModel.visits'),120,'Repeating changes total, not the per-run mean');
-  assert.equal(probability('yieldTotals(doubleModel.visits).total'),4800);
+  assert.equal(probability('doubleModel.visits'),60,'Repeating changes total, not the per-run mean');
+  assert.equal(probability('yieldTotals(doubleModel.visits).total'),2400);
   vm.runInContext("yieldSettings.hours=20",context);
-  assert.equal(probability('yieldFloorModel(testFloor).visits'),240);
+  assert.equal(probability('yieldFloorModel(testFloor).visits'),120);
   vm.runInContext("yieldSettings.transitMinutes=1200",context);
   assert.equal(probability('yieldFloorModel(testFloor).visits'),0,'No target-floor time means zero income');
   assert.equal(probability('cleanYieldSettings({hours:-1,runs:0,winPercent:NaN,battleSeconds:Infinity}).hours'),0.1);
@@ -306,7 +306,7 @@ function element(id) {
   assert.equal((element('wiki-article').innerHTML.match(/class="wiki-money-entry"/g)||[]).length,0);
   assert.match(element('wiki-article').innerHTML,/현재 왕국 레벨을 선택/);
   vm.runInContext("wikiState.kingdom=17;openWiki('money')",context);
-  assert.equal((element('wiki-article').innerHTML.match(/class="wiki-money-entry"/g)||[]).length,1);
+  assert.equal((element('wiki-article').innerHTML.match(/class="wiki-money-entry"/g)||[]).length,5);
   vm.runInContext("wikiState.openMaps=[];openWiki('money')",context);
   assert.equal((element('wiki-article').innerHTML.match(/class="wiki-money-entry"/g)||[]).length,0);
   assert.match(element('wiki-article').innerHTML,/반복 수급 후보가 없습니다/);
@@ -359,18 +359,18 @@ function element(id) {
   vm.runInContext("wikiState.kingdom=17;wikiState.openMaps=null;wikiState.excluded=[];wikiState.maxFloors={};yieldSettings={...YIELD_DEFAULTS};globalThis.saleModels=wikiMoneyCandidates()",context);
   assert.equal(probability("saleModels.every(m=>[...m.sales.values()].every(s=>records[s.id].type==='item'))"),true);
   assert.equal(probability('saleModels.every(m=>Math.abs(m.perRun-(m.goldMonster+m.goldChest+m.goldSales)*m.visits)<1e-6)'),true);
-  assert.equal(probability('saleModels.some(m=>m.goldItemSales>0)'),true);
+  assert.equal(probability('saleModels.every(m=>m.goldItemSales===0&&m.gatherSeconds===0&&m.sales.size===0)'),true);
   assert.equal(probability('saleModels.some(m=>isFarmingException(m.floor))'),false);
   vm.runInContext("openWiki('money')",context);
-  assert.match(element('wiki-article').innerHTML,/장비 제외 판매 수익 내역/);
-  assert.match(element('wiki-article').innerHTML,/도구·소모품 판매/);
+  assert.doesNotMatch(element('wiki-article').innerHTML,/장비 제외 판매 수익 내역/);
+  assert.doesNotMatch(element('wiki-article').innerHTML,/도구·소모품 판매/);
   // Mixed equipment/item reward grade: excluded equipment must still compete.
   vm.runInContext("records['sale-item']={id:'sale-item',type:'item',fields:{price:1000,level:1}};records['sale-material']={id:'sale-material',type:'material',internal:'1_Test'};globalThis.saleMonster={id:'sale-test-monster',fields:{rewardWeapons:[{acquisition:1}],rewardItems:[{itemMaster:{ref:'sale-item'},acquisition:1}]}}",context);
   assert.equal(probability('monsterItemSaleRewards(saleMonster)[0].chance'),0.25);
   // Three equal-weight chests: only the item has a verified sale payout; material and weapon are excluded.
   vm.runInContext("records['sale-road']={type:'road',fields:{isRoom:0,moveTime:20}};records['sale-dungeon']={fields:{moveTime:1}};yieldSettings={...YIELD_DEFAULTS,overheadSeconds:0,chestSeconds:0};globalThis.saleFloor={id:'sale-test-floor',dungeons:['sale-dungeon'],fields:{roads:[{roadMaster:{ref:'sale-road'},appearanceRate:1}],materialInfos:[],monsterInfos:[],maxMonsterAppearanceCount:1,chestInfos:['material','item','weapon'].map(kind=>({isRoom:0,frequency:5,appearanceConditions:10,isClear:0,chest:{minGold:0,maxGold:0,material:{ref:kind==='material'?'sale-material':'0'},item:{ref:kind==='item'?'sale-item':'0'},weapon:{ref:kind==='weapon'?'excluded-weapon':'0'},armor:{ref:'0'},accessory:{ref:'0'}}}))}};globalThis.saleFixture=yieldFloorModel(saleFloor)",context);
-  assert.equal(probability('saleFixture.visits'),360);
-  assert.ok(Math.abs(probability('saleFixture.perRun')-12000)<1e-8);
+  assert.equal(probability('saleFixture.visits'),180);
+  assert.ok(Math.abs(probability('saleFixture.perRun')-6000)<1e-8);
   assert.equal(probability('saleFixture.sales.size'),1);
   vm.runInContext("yieldSettings.openPercent=0",context);
   assert.equal(probability('yieldFloorModel(saleFloor).perRun'),0);
