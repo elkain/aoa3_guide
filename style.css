@@ -36,3 +36,19 @@
 .material-rank-badge{display:inline-block;font-size:11px;line-height:1.6;padding:3px 8px;border:1px solid var(--line);border-radius:4px;color:var(--muted);margin-bottom:6px}.material-rank-best{color:var(--accent);border-color:#738653;background:#c3d88d10}.material-rank-detail{border-bottom:1px solid var(--line);padding:14px 0}.wiki-table th[scope="rowgroup"]{vertical-align:top}
 
 .material-stars{color:var(--gold);font-size:17px;letter-spacing:1px;white-space:nowrap}.material-exception td{background:#c3d88d05}.material-rank-badge small{display:block;font-size:10px;letter-spacing:0}
+/* Building growth documents reuse the wiki table and reference links. */
+.building-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+.building-tabs button{padding:10px 16px;border:1px solid var(--line,#d8d8d0);border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.building-tabs button[aria-pressed="true"]{background:#273b32;color:#fff;border-color:#273b32}
+.building-growth>p{line-height:1.7}
+.building-level-table{min-width:680px;width:100%}
+.building-level-table th:first-child{width:88px;white-space:nowrap}
+.building-level-table td:nth-child(3){width:85px;white-space:nowrap}
+.building-level-table td:last-child{min-width:180px}
+.building-level-table small{display:block;font-weight:400;opacity:.7;margin-top:4px}
+.building-unlock-links,.building-materials{margin-top:8px;line-height:1.8}
+.building-stock{margin-top:8px}
+.building-stock summary{cursor:pointer;padding:4px 0}
+.building-growth .wiki-table-wrap{max-width:100%;overflow-x:auto}
+.building-row{grid-template-columns:72px minmax(0,1fr) 110px 24px}
+@media(max-width:650px){.building-row{grid-template-columns:54px minmax(0,1fr) 24px}.building-row .row-meta{display:none}.building-level-table{font-size:13px}.building-tabs button{flex:1}}
