@@ -1,0 +1,25 @@
+{
+  "sourceSha256": "293b7ebfb04e70fcadc16614c8164b95e77aba5320fe57a78c0fa8907844a806",
+  "metadataPath": "assets/bin/Data/Managed/Metadata/global-metadata.dat",
+  "metadataSha256": "bbe9602bad7026a00098cb3dfec2e06721ab1ec9d2b53c71f194f10e57b4e3eb",
+  "metadataVersion": 31,
+  "enums": {
+    "AppearanceConditions": {
+      "0": "One",
+      "1": "Time",
+      "2": "PartyOne",
+      "3": "NotHave",
+      "4": "Guild",
+      "10": "Random"
+    },
+    "Frequency": {
+      "0": "None",
+      "5": "Always",
+      "10": "Often",
+      "11": "Sometimes",
+      "12": "Rare",
+      "13": "SuperRare"
+    }
+  },
+  "scope": "Enum names verified from metadata; runtime checks, reset scope, and probability formulas not verified."
+}

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AoA3 · 공략 위키</title>
+  <meta name="description" content="AoA3 재료별 우선 수급처, 돈 수급 던전, 생존 파티 공략. 왕국 레벨과 탐색·개방 상태에 맞춰 후보를 좁힙니다.">
+  <link rel="stylesheet" href="style.css"><script src="app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#"><span class="brand-mark">A₃</span><span>AoA3 공략 위키<small>MATERIALS · GOLD · SURVIVAL</small></span></a>
+    <p class="nav-caption">모험가의 길잡이</p><nav id="navigation" aria-label="위키 분류"></nav>
+  </aside>
+  <main>
+    <header class="topbar"><span>AOA3 / <span id="current-section">던전</span></span><span id="version" class="version" aria-label="게임 버전"></span></header>
+    <section class="intro compact-intro"><div><h1 id="intro-title">AoA3 데이터 찾기</h1><p id="intro-subtitle" class="subtitle">장비·아이템 획득처와 던전 정보를 한곳에서.</p></div></section>
+    <div id="workspace-switch" class="workspace-switch" aria-label="이용 목적"><button data-workspace="guide" aria-pressed="false">공략 위키</button><button data-workspace="info" class="active" aria-pressed="true">자료 사전</button></div>
+    <section id="browser-panel" class="browser" aria-label="검색 및 필터">
+      <div class="search-row"><label class="search"><span aria-hidden="true">⌕</span><input id="query" type="search" placeholder="아이템 이름 · 마법 무기 · 효과 검색" aria-label="기록 검색"></label><button id="reset">초기화</button></div>
+      <div class="filters quick-filters">
+        <label id="kind-filter">종류<select id="kind"><option value="">전체 종류</option></select></label>
+        <label id="tag-filter">효과·획득 태그<select id="tag"><option value="">전체 태그</option></select></label>
+      </div>
+      <details class="advanced-filters"><summary>상세 필터 · 지도 / 던전 / 레벨</summary><div class="filters">
+        <label>지도<select id="map"><option value="">전체 지도</option></select></label>
+        <label>던전<select id="dungeon"><option value="">전체 던전</option></select></label>
+        <label>최소 레벨<input id="min-level" type="number" min="0" placeholder="제한 없음"></label>
+        <label>최대 레벨<input id="max-level" type="number" min="0" placeholder="제한 없음"></label>
+        <label>층 번호<input id="floor" type="number" min="1" placeholder="전체 층"></label>
+      </div></details>
+    </section>
+    <section class="results"><div class="results-head"><h2 id="result-title">던전 목록</h2><span id="result-count" aria-live="polite"></span><div id="result-actions" class="result-actions"><label class="sr-only" for="sort">정렬 방식</label><select id="sort"><option value="level">레벨 낮은 순</option><option value="level-desc">레벨 높은 순</option><option value="name">이름순</option></select><button id="csv">CSV 내려받기 ↓</button></div></div><div id="error" class="error" role="alert" hidden></div><div id="rows" class="rows"><p class="empty">게임 데이터를 읽고 있습니다…</p></div><button id="more" class="more" hidden>더 보기</button></section>
+    <footer>AoA3 · 비공식 공략 위키 <span>게임 버전별로 수치·획득 조건이 달라질 수 있습니다.</span></footer>
+  </main>
+  <dialog id="detail" aria-labelledby="detail-title"><div class="dialog-top"><span id="detail-type" class="eyebrow">상세 기록</span><button id="close-detail" aria-label="상세 창 닫기">닫기 ×</button></div><div id="detail-body"></div></dialog>
+</body></html>

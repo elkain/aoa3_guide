@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "game": "AoA3",
+  "version": "14.4.6",
+  "package": "com.TownSoft.agentofadventure3",
+  "source": {
+    "repository": "elkain/game_analisys",
+    "tag": "data-v14.6.6",
+    "asset": "Idle+RPG+Agent+of+Adventure_14.4.6_APKPure.xapk",
+    "sha256": "293b7ebfb04e70fcadc16614c8164b95e77aba5320fe57a78c0fa8907844a806",
+    "size": 164335287
+  },
+  "activeBundle": "assets/aa/Android/defaultlocalgroup_assets_all_298a1c0b88351fa9c3296132afed1f9c.bundle",
+  "counts": {
+    "weapon": 211,
+    "trap": 55,
+    "achievement": 116,
+    "dungeon": 236,
+    "accessory": 167,
+    "material": 92,
+    "monster": 239,
+    "road": 135,
+    "skill": 131,
+    "character": 34,
+    "job": 19,
+    "armor": 71,
+    "item": 67,
+    "map": 17,
+    "building": 53,
+    "status": 23,
+    "floor": 994
+  },
+  "objects": 1666,
+  "floorRecords": 994,
+  "links": 28474,
+  "lootEntries": 7577,
+  "encounterEntries": 10292,
+  "notes": [
+    "패키지 내 정의이며 게임 내 출현·해금 여부를 보장하지 않습니다.",
+    "한국어·영문·일본어 이름은 패키지 원문입니다. 번역이 어색한 항목도 그대로 보존합니다.",
+    "frequency, acquisition, appearanceConditions 등은 원본 코드입니다. 확률이나 획득 보장으로 해석하지 않았습니다.",
+    "몬스터 스탯은 저장된 원시 수치이며 최종 전투 수치가 아닙니다.",
+    "층 기록은 caveLevelMasters 배열을 분리한 파생 레코드입니다. 원본 객체 ID와 배열 위치를 함께 기록합니다. 던전의 레벨 범위는 그 층들의 level 최솟값~최댓값입니다.",
+    "isClear 등 저장된 플래그는 패키지 기본값입니다. 개인 플레이 진행 상태가 아닙니다.",
+    "새 파일을 업로드해도 고정된 source.json을 변경하지 않는 한 기존 버전을 분석합니다."
+  ]
+}
