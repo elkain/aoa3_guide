@@ -146,9 +146,13 @@ function element(id) {
   assert.equal(element('tag').innerHTML.includes('>추가 속성 · 어둠 (17)<'),false);
   assert.equal(vm.runInContext('rows.length',context),2660);
   assert.equal(vm.runInContext('archive.links.length',context),28474);
-  vm.runInContext("openHub('growth')",context);
+  vm.runInContext("openHub('guild')",context);
   assert.match(element('rows').innerHTML,/data-ui-value="guild"/);
-  await vm.runInContext('openGuild()',context);
+  assert.match(element('navigation').innerHTML,/data-hub="guild"/);
+  assert.match(element('rows').innerHTML,/data-ui-value="event"/);
+  await vm.runInContext("uiOpen('view','guild')",context);
+  assert.equal(vm.runInContext('uiCurrentHash',context),'#guild');
+  assert.match(element('page-path').innerHTML,/data-hub="guild"/);
   assert.equal(element('browser-panel').hidden,true);
   assert.equal(element('result-actions').hidden,true);
   for(const text of ['시설 레벨별 기능','골드와 공헌도','재판매 제한','한 번도 얻지 못한 재료','이미 클리어했거나 종료된 이벤트','레벨별 해금과 건설·레벨업 요구사항'])assert.ok(element('rows').innerHTML.includes(text),text);
@@ -159,9 +163,10 @@ function element(id) {
   vm.runInContext("setType('weapon')",context);
   assert.equal(element('browser-panel').hidden,false);
   assert.equal(element('result-actions').hidden,false);
-  vm.runInContext("openHub('adventure')",context);
+  vm.runInContext("openHub('guild')",context);
   assert.match(element('rows').innerHTML,/data-ui-value="guild-dungeons"/);
-  vm.runInContext('openGuildDungeons()',context);
+  vm.runInContext("uiOpen('view','guild-dungeons')",context);
+  assert.match(element('page-path').innerHTML,/data-hub="guild"/);
   assert.equal(element('result-count').textContent,'141개 기록');
   assert.equal(vm.runInContext('filtered.every(r=>r.type==="dungeon"&&guildDungeonData.dungeons[r.id])',context),true);
   assert.match(element('rows').innerHTML,/data-guild-record/);
@@ -177,7 +182,10 @@ function element(id) {
   vm.runInContext('openGuildTrap(Object.keys(guildDungeonData.traps)[0])',context);
   assert.match(element('detail-body').innerHTML,/발견/);
   assert.equal(element('detail-body').innerHTML.includes('pathId'),false);
-  await vm.runInContext('openGuild()',context);
+  assert.match(element('navigation').innerHTML,/data-hub="guild"/);
+  await vm.runInContext("uiOpen('view','guild')",context);
+  assert.equal(vm.runInContext('uiCurrentHash',context),'#guild');
+  assert.match(element('page-path').innerHTML,/data-hub="guild"/);
   assert.equal(vm.runInContext('guildDungeonMode',context),false);
   assert.match(element('rows').innerHTML,/길드 던전 목록 보기/);
   vm.runInContext("setType('dungeon')",context);
@@ -196,7 +204,11 @@ function element(id) {
   vm.runInContext("const plusTwo=rows.find(r=>r.type==='dungeon'&&r.fields.addGuildEventLevel===2);openRecord(plusTwo.id,'guild');",context);
   assert.match(element('detail-body').innerHTML,/설정 \+5 → 유효 \+7/);
   for(const text of ['던전 클리어 조건과 보상','최종 목표','몬스터','발견·해제·저항','강화 여부·결과','무작위 출현 상자'])assert.ok(element('detail-body').innerHTML.includes(text),text);
-  await vm.runInContext('openGuild()',context);
+  assert.match(element('navigation').innerHTML,/data-hub="guild"/);
+
+  await vm.runInContext("uiOpen('view','guild')",context);
+  assert.equal(vm.runInContext('uiCurrentHash',context),'#guild');
+  assert.match(element('page-path').innerHTML,/data-hub="guild"/);
   assert.match(element('rows').innerHTML,/추가 레벨에 따른 변화/);
   vm.runInContext("openGuide('prepare')",context);
   assert.equal(vm.runInContext('guideActive',context),true);
@@ -418,7 +430,7 @@ function element(id) {
   assert.equal(probability("rows.filter(m=>m.type==='material').every(m=>{const p=materialDisplayRecommendations(m);return p.length<=3&&p.filter(x=>x.isException).length<=1&&p.every(x=>wikiFloorAllowed(x.floor))&&(!p.some(x=>x.isException)||p.find(x=>x.isException).total>=p[0].total*0.5);})"),true);
   // New category routes must preserve access to every existing player data type.
   assert.equal(probability("[...PLAYER_TYPES].every(type=>type==='building'||Object.values(UI_HUBS).some(h=>h.entries.some(e=>e[0]==='type'&&e[1]===type)))"),true);
-  for(const group of ['adventure','growth','equipment','combat']) {
+  for(const group of ['adventure','growth','guild','equipment','combat']) {
     await vm.runInContext("uiRoute('#hub/"+group+"')",context);
     assert.equal(probability('uiCurrentHash'),'#hub/'+group);
     assert.equal(element('browser-panel').hidden,true);
@@ -435,6 +447,11 @@ function element(id) {
   assert.match(element('wiki-article').innerHTML,/supply-portals/);
   assert.equal(element('results-head').hidden,true);
   assert.equal(probability("Object.values(UI_HUBS).flatMap(h=>h.entries).filter(e=>e[0]==='building').length"),2);
+  await vm.runInContext("uiRoute('#guild')",context);
+  assert.match(element('rows').innerHTML,/길드 상점 · 공헌도/);
+  assert.match(element('rows').innerHTML,/길드 이벤트 클리어 보상/);
+  await vm.runInContext("uiRoute('#guide/event')",context);
+  assert.match(element('page-path').innerHTML,/data-hub="guild"/);
   assert.equal(element('error').textContent,'');
   console.log('AoA3 frontend smoke passed: gzip load, multilingual search, acquisition links, dungeon detail, and floor/level filters. Browser rendering not covered.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
