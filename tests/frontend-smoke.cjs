@@ -146,7 +146,8 @@ function element(id) {
   assert.equal(element('tag').innerHTML.includes('>추가 속성 · 어둠 (17)<'),false);
   assert.equal(vm.runInContext('rows.length',context),2660);
   assert.equal(vm.runInContext('archive.links.length',context),28474);
-  assert.match(element('navigation').innerHTML,/data-view="guild"/);
+  vm.runInContext("openHub('growth')",context);
+  assert.match(element('rows').innerHTML,/data-ui-value="guild"/);
   await vm.runInContext('openGuild()',context);
   assert.equal(element('browser-panel').hidden,true);
   assert.equal(element('result-actions').hidden,true);
@@ -158,7 +159,8 @@ function element(id) {
   vm.runInContext("setType('weapon')",context);
   assert.equal(element('browser-panel').hidden,false);
   assert.equal(element('result-actions').hidden,false);
-  assert.match(element('navigation').innerHTML,/data-view="guild-dungeons"/);
+  vm.runInContext("openHub('adventure')",context);
+  assert.match(element('rows').innerHTML,/data-ui-value="guild-dungeons"/);
   vm.runInContext('openGuildDungeons()',context);
   assert.equal(element('result-count').textContent,'141개 기록');
   assert.equal(vm.runInContext('filtered.every(r=>r.type==="dungeon"&&guildDungeonData.dungeons[r.id])',context),true);
@@ -414,6 +416,25 @@ function element(id) {
   assert.match(element('wiki-material-picks').innerHTML,/material-stars/);
   assert.equal(/회 합계|시간당|회당.*평균 추정|회당 평균 추정/.test(element('wiki-material-picks').innerHTML),false,'Material rows do not list totals or numeric averages');
   assert.equal(probability("rows.filter(m=>m.type==='material').every(m=>{const p=materialDisplayRecommendations(m);return p.length<=3&&p.filter(x=>x.isException).length<=1&&p.every(x=>wikiFloorAllowed(x.floor))&&(!p.some(x=>x.isException)||p.find(x=>x.isException).total>=p[0].total*0.5);})"),true);
+  // New category routes must preserve access to every existing player data type.
+  assert.equal(probability("[...PLAYER_TYPES].every(type=>type==='building'||Object.values(UI_HUBS).some(h=>h.entries.some(e=>e[0]==='type'&&e[1]===type)))"),true);
+  for(const group of ['adventure','growth','equipment','combat']) {
+    await vm.runInContext("uiRoute('#hub/"+group+"')",context);
+    assert.equal(probability('uiCurrentHash'),'#hub/'+group);
+    assert.equal(element('browser-panel').hidden,true);
+    assert.match(element('rows').innerHTML,/hub-entry-grid/);
+  }
+  await vm.runInContext("uiRoute('#browse/weapon')",context);
+  assert.equal(probability('selected'),'weapon');
+  assert.equal(element('browser-panel').hidden,false);
+  assert.match(element('page-path').innerHTML,/장비와 아이템/);
+  await vm.runInContext("uiRoute('#buildings/job')",context);
+  assert.equal(element('result-count').textContent,'19개 기록');
+  assert.match(element('page-path').innerHTML,/왕국과 육성/);
+  await vm.runInContext("uiRoute('#wiki/home')",context);
+  assert.match(element('wiki-article').innerHTML,/supply-portals/);
+  assert.equal(element('results-head').hidden,true);
+  assert.equal(probability("Object.values(UI_HUBS).flatMap(h=>h.entries).filter(e=>e[0]==='building').length"),2);
   assert.equal(element('error').textContent,'');
   console.log('AoA3 frontend smoke passed: gzip load, multilingual search, acquisition links, dungeon detail, and floor/level filters. Browser rendering not covered.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
