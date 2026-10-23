@@ -26,12 +26,30 @@ for(const floor of floors){
 const gatheringFloor=floors.find(f=>yieldFloorModel(f)?.gatherSeconds>0);
 assert.ok(gatheringFloor,'fixture needs a gathering source');
 assert.ok(yieldFloorModel(gatheringFloor,'money').cycleSeconds<yieldFloorModel(gatheringFloor).cycleSeconds);
-// Fixed and timed treasure must never be counted in repeat gold.
+// Non-repeat payouts are excluded but must keep their share in selection.
 const fixture=JSON.parse(JSON.stringify(floors[0]));fixture.id='test-floor';fixture.fields.monsterInfos=[];
 const chest={frequency:10,appearanceConditions:10,isRoom:0,isClear:0,chest:{minGold:100,maxGold:100}};
 fixture.fields.chestInfos=[chest];yieldFloorCache.clear();const repeat=yieldFloorModel(fixture,'money');
-fixture.fields.chestInfos.push({...chest,frequency:1,chest:{minGold:1000000,maxGold:1000000}},{...chest,appearanceConditions:4},{...chest,isClear:1});
-yieldFloorCache.clear();assert.equal(yieldFloorModel(fixture,'money').perRun,repeat.perRun);
+fixture.fields.chestInfos.push({...chest,appearanceConditions:1,chest:{minGold:1000000,maxGold:1000000}});
+yieldFloorCache.clear();const competition=yieldFloorModel(fixture,'money');
+assert.equal(competition.goldChest,repeat.goldChest/2);
+assert.equal(competition.chests,repeat.chests/2);
+assert(competition.perRun<repeat.perRun,'competing unavailable chest reduces repeat income');
+fixture.fields.chestInfos[1].chest.minGold=9999999;yieldFloorCache.clear();assert.equal(yieldFloorModel(fixture,'money').perRun,competition.perRun,'excluded reward amount must never be credited');
+// Fallback occurs before corridor filtering; emptying after filtering is a failed draw.
+const roomOnly={...chest,isRoom:1},fallback={...chest,frequency:5};
+let mass=yieldSelectionWeights([roomOnly,fallback],'chest','corridor');
+assert.equal(mass.get(roomOnly),0);assert.equal(mass.get(fallback),.5);
+const repeatMonster={...chest,wrapMonsterMasters:[]},clearMonster={...repeatMonster,isClear:1};
+const encounterFixture={fields:{monsterInfos:[repeatMonster,clearMonster],maxMonsterAppearanceCount:2}};
+// first repeat=.25; first clear=.25; extra repeat=.5. Only first repeat triggers extra.
+let scheduled=yieldMonsterSchedule(encounterFixture,'room');assert.equal(scheduled.get(repeatMonster),.375);assert.equal(scheduled.get(clearMonster),.25);
+assert.equal(yieldRepeatTarget(clearMonster),false);assert.equal(yieldRepeatTarget(repeatMonster),true);
+const battleFixture=JSON.parse(JSON.stringify(floors[0]));battleFixture.id='test-battle';battleFixture.fields.chestInfos=[];battleFixture.fields.maxMonsterAppearanceCount=2;
+const knownMonster=rows.find(r=>r.type==='monster'&&r.fields.gold>0);
+assert(knownMonster);battleFixture.fields.monsterInfos=[{...clearMonster,wrapMonsterMasters:[{master:{ref:knownMonster.id}}]}];
+yieldFloorCache.clear();const clearOnly=yieldFloorModel(battleFixture,'money');
+assert.equal(clearOnly.goldMonster,0);assert.equal(clearOnly.battles,.5);assert.equal(clearOnly.perRun,0);
 // Supply limits must cap exposure before subtracting travel time.
 yieldSettings=cleanYieldSettings({...YIELD_DEFAULTS,hours:24,food:1,transitMinutes:10});
 const capped=yieldTimeBudget();assert.equal(capped.runSeconds,2880);assert.equal(capped.activeSeconds,2280);assert.equal(capped.foodLimited,true);

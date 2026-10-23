@@ -491,9 +491,9 @@ try{const current=localStorage.getItem('aoa3-yield-model-v2');yieldSettings=curr
 let yieldFloorCache=new Map(),yieldCacheKey='';
 function yieldSettingsPanel(){
  const money=wikiPage==='money',controls=[...(!money?[['runs','재료 평가 반복 횟수','회',1,1000]]:[]),['hours','회당 탐험 시간 상한','시간',0.1,240],['food','가져갈 식량 · 0은 제한 없음','개',0,1000],['battleSeconds','전투 1건당 추가 지연','초',0,3600],['overheadSeconds','구간당 기타 추가 지연','초',0,3600],['chestSeconds','상자 개봉 1건당 추가 지연','초',0,3600],['transitMinutes','회당 목표 층 밖 소요 시간','분',0,14400],['winPercent','전투 보상 획득률','%',0,100],['openPercent','상자 발견·개봉 성공률','%',0,100]];
- return '<details class="wiki-method yield-settings"><summary>계산 조건 · 회당 최대 '+yieldSettings.hours+'시간 · 식량 '+(yieldSettings.food||'제한 없음')+'</summary><p>이동은 모험 1틱당 실제 10초로 계산합니다. 처리 시간은 이동 중 겹치는 시간을 제외한 추가 지연입니다. 기본값은 실제 기록으로 보정했으며 파티에 맞게 바꿀 수 있습니다.</p><div class="wiki-inline-controls">'+controls.map(([key,label,unit,min,max])=>'<label>'+label+' ('+unit+')<input type="number" data-yield-setting="'+key+'" min="'+min+'" max="'+max+'" step="any" value="'+yieldSettings[key]+'"></label>').join('')+'</div><button data-yield-reset>실측 보정 기본값 복원</button><p class="muted-note">식량 한도와 시간 상한 중 먼저 도달하는 시점까지만 계산합니다. 목표 층 밖 소요 시간은 그 한도에서 차감합니다. 공포·부상에 따른 조기 귀환은 파티별 차이가 커 자동 예측하지 않습니다.'+(money?' 채집 행동·채집 시간·아이템 판매액은 모두 제외합니다.':' 재료 평가는 채집과 몬스터 드롭을 합산합니다. 반복 횟수는 측정 표본 수가 아닙니다.')+'</p></details>';
+ return '<details class="wiki-method yield-settings"><summary>계산 조건 · 회당 최대 '+yieldSettings.hours+'시간 · 식량 '+(yieldSettings.food||'제한 없음')+'</summary><p>이동은 모험 1틱당 실제 10초로 계산합니다. 처리 시간은 이동 중 겹치는 시간을 제외한 추가 지연입니다. 단회 대상은 완료했고 시간 복구형 대상은 아직 재활성화되지 않은 반복 수급을 가정합니다. 기본값은 실제 기록으로 보정했으며 파티에 맞게 바꿀 수 있습니다.</p><div class="wiki-inline-controls">'+controls.map(([key,label,unit,min,max])=>'<label>'+label+' ('+unit+')<input type="number" data-yield-setting="'+key+'" min="'+min+'" max="'+max+'" step="any" value="'+yieldSettings[key]+'"></label>').join('')+'</div><button data-yield-reset>실측 보정 기본값 복원</button><p class="muted-note">식량 한도와 시간 상한 중 먼저 도달하는 시점까지만 계산합니다. 목표 층 밖 소요 시간은 그 한도에서 차감합니다. 공포·부상에 따른 조기 귀환은 파티별 차이가 커 자동 예측하지 않습니다.'+(money?' 채집 행동·채집 시간·아이템 판매액은 모두 제외합니다.':' 재료 평가는 채집과 몬스터 드롭을 합산합니다. 반복 횟수는 측정 표본 수가 아닙니다.')+'</p></details>';
 }
-function yieldPolicy(){return '<details class="wiki-method"><summary>평가 기준 · 실제 기록으로 보정한 범위</summary><p>472개 모험 기록을 확인하고 일반 모험의 완료된 구간을 대조했습니다. 채집이 실행된 구간·층 전환·귀환 구간은 시간 보정에서 제외했습니다. 개인 세이브와 모험별 기록은 사이트에 공개하지 않습니다.</p><p>이동 간격은 게임 코드의 10초를 적용합니다. 이동 중 이벤트가 겹치는 것을 고려해 구간당 기타 지연 '+yieldNumber(YIELD_DEFAULTS.overheadSeconds)+'초, 전투당 추가 지연 '+yieldNumber(YIELD_DEFAULTS.battleSeconds)+'초, 개봉당 추가 지연 '+yieldNumber(YIELD_DEFAULTS.chestSeconds)+'초를 기본값으로 사용합니다. 사용자가 조정한 값이 있으면 그 값을 우선합니다.</p><p>보정에 사용하지 않은 다른 던전의 9,473개 구간에서 시간 절대오차 평균은 기존 약 146.4초에서 17.9초로 줄었습니다. 관측된 전투·개봉 건수를 입력한 구간 시간 검증이며, 골드·전체 탐험 수익의 예측 정확도가 같은 수준이라는 뜻은 아닙니다.</p><p>방 가중치를 실측 경로에 맞춰 보정합니다. 별도 검증 구간의 방 방문 합계 오차는 약 +81.7%에서 −11.3%로 줄었습니다. 개별 던전·파티의 실제 동선을 완전히 재현하지는 않습니다. 표본이 적은 던전별 드롭 확률이나 상자 골드 자체는 실측 평균으로 덮어쓰지 않았습니다.</p><p>골드는 반복 상자와 몬스터의 직접 골드만 합산합니다. 단회·시간 복구·길드·클리어 표시 상자와 편성은 제외하고, 채집·재료·도구·소모품·장비 판매액은 더하지 않습니다. 식량·치료 비용 차감 전 수입입니다. 재료 평가는 채집 도구 충분·직업 추가 보상 없음 조건으로 별도 계산합니다.</p><p>식량 소진 시점은 식사 주기와 처리 지연을 반영한 근사입니다. 층 이동·중도 귀환과 캐릭터 사망, 추가 레벨·보상 보정은 완전한 전투 시뮬레이션 대상이 아닙니다. 시간당 수입은 입력한 시간 상한 대신 실제로 계산한 탐험 시간을 분모로 사용합니다.</p></details>';}
+function yieldPolicy(){return '<details class="wiki-method"><summary>평가 기준 · 실제 기록으로 보정한 범위</summary><p>472개 모험 기록을 확인하고 일반 모험의 완료된 구간을 대조했습니다. 채집이 실행된 구간·층 전환·귀환 구간은 시간 보정에서 제외했습니다. 개인 세이브와 모험별 기록은 사이트에 공개하지 않습니다.</p><p>이동 간격은 게임 코드의 10초를 적용합니다. 이동 중 이벤트가 겹치는 것을 고려해 구간당 기타 지연 '+yieldNumber(YIELD_DEFAULTS.overheadSeconds)+'초, 전투당 추가 지연 '+yieldNumber(YIELD_DEFAULTS.battleSeconds)+'초, 개봉당 추가 지연 '+yieldNumber(YIELD_DEFAULTS.chestSeconds)+'초를 기본값으로 사용합니다. 사용자가 조정한 값이 있으면 그 값을 우선합니다.</p><p>보정에 사용하지 않은 다른 던전의 9,473개 구간에서 시간 절대오차 평균은 기존 약 146.4초에서 17.9초로 줄었습니다. 관측된 전투·개봉 건수를 입력한 구간 시간 검증이며, 골드·전체 탐험 수익의 예측 정확도가 같은 수준이라는 뜻은 아닙니다.</p><p>방 가중치를 실측 경로에 맞춰 보정합니다. 별도 검증 구간의 방 방문 합계 오차는 약 +81.7%에서 −11.3%로 줄었습니다. 개별 던전·파티의 실제 동선을 완전히 재현하지는 않습니다. 표본이 적은 던전별 드롭 확률이나 상자 골드 자체는 실측 평균으로 덮어쓰지 않았습니다.</p><p>골드는 반복 상자와 몬스터의 직접 골드만 합산합니다. 단회·시간 복구·길드·클리어 표시 보상과 채집·재료·도구·소모품·장비 판매액은 합산하지 않습니다. 보상에서 제외한 후보도 추첨 경쟁에는 남깁니다. 식량·치료 비용 차감 전 수입입니다. 재료 평가는 채집 도구 충분·직업 추가 보상 없음 조건으로 별도 계산합니다.</p><p>단회 대상은 완료했고 시간 복구형 대상은 아직 재활성화되지 않아 실행되지 않는 일반 반복 수급 조건입니다. 반복형 클리어 전투는 보상을 제외하더라도 전투 시간에 포함하며, 첫 호출에서 클리어 전투가 잡히면 추가 편성을 만들지 않습니다. 시간 복구형 보상이 다시 활성화되거나 미완료 대상이 있는 파티의 수익·소요 시간은 달라질 수 있습니다.</p><p>식량 소진 시점은 식사 주기와 처리 지연을 반영한 근사입니다. 층 이동·중도 귀환과 캐릭터 사망, 추가 레벨·보상 보정은 완전한 전투 시뮬레이션 대상이 아닙니다. 시간당 수입은 입력한 시간 상한 대신 실제로 계산한 탐험 시간을 분모로 사용합니다.</p></details>';}
 function yieldSummary(x,unit){return '<strong>'+yieldNumber(x.perRun)+' '+unit+'</strong><small>1회 평균 추정 · 목표 층 '+yieldNumber(x.activeSeconds/3600)+'시간</small><small>시간당 '+yieldNumber(x.perHour)+' '+unit+'</small>';}
 function yieldNumber(n){return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:n>0&&n<0.01?6:2});}
 function expectedMonsterGold(base){return base<=0?0:base===1?7/6:base;}
@@ -504,8 +504,30 @@ function yieldTimeBudget(){
  return {runSeconds,activeSeconds,foodLimited:foodSeconds<yieldSettings.hours*3600};
 }
 function yieldTotals(perRun){const {runSeconds}=yieldTimeBudget();return {perRun,total:perRun*yieldSettings.runs,perHour:runSeconds>0?perRun/(runSeconds/3600):0};}
-function yieldMonsterGroups(floor,context){return floor.fields.monsterInfos.filter(e=>(context==='room'||!e.isRoom)&&e.frequency!==0&&e.appearanceConditions===10&&!e.isClear);}
-function yieldChestEntries(floor,context){return floor.fields.chestInfos.filter(e=>(context==='room'||!e.isRoom)&&e.frequency!==0&&e.appearanceConditions===10&&!e.isClear);}
+// Candidate competition is preserved even when the selected reward is excluded.
+// Normal repeat-farming scenario: non-type10 entries are already unavailable.
+// Type10 clear battles still execute and consume time; their payouts are not credited.
+function yieldSelectionWeights(entries,kind,context,additional=false){
+ const weights=new Map(entries.map(e=>[e,0]));
+ for(const [code,p]of Object.entries(MATERIAL_FREQUENCY_DRAW)){
+  let pool=entries.filter(e=>e.frequency===Number(code)&&e.appearanceConditions!==4);
+  if(!pool.length)pool=entries.filter(e=>e.frequency===5&&e.appearanceConditions!==4);
+  if(!pool.length)pool=entries.filter(e=>e.frequency===5);
+  if(context!=='room')pool=pool.filter(e=>!e.isRoom);
+  if(kind==='monster'&&additional)pool=pool.filter(e=>!e.isClear&&e.appearanceConditions!==4);
+  if(pool.length)for(const e of pool)weights.set(e,weights.get(e)+p/pool.length);
+ }
+ return weights;
+}
+function yieldMonsterSchedule(floor,context){
+ const groups=floor.fields.monsterInfos,first=yieldSelectionWeights(groups,'monster',context),extra=yieldSelectionWeights(groups,'monster',context,true);
+ // A scheduled clear battle blocks extra calls; other completed/time-restored
+ // candidates compete in selection but do not schedule under this scenario.
+ const trigger=groups.reduce((p,e)=>p+(e.appearanceConditions===10&&!e.isClear?(first.get(e)||0):0),0);
+ const attempts=Math.max(0,floor.fields.maxMonsterAppearanceCount-1);
+ return new Map(groups.map(e=>[e,e.appearanceConditions===10?(first.get(e)||0)+trigger*attempts*(extra.get(e)||0):0]));
+}
+function yieldRepeatTarget(e){return e.appearanceConditions===10&&!e.isClear;}
 // Native Material.Price / Item.BasePrice / Equip.GetSellPrice; fresh, unbroken loot.
 function yieldEquipBasePrice(level,threshold){if(!Number.isInteger(level)||level<1)return 0;let value=100*2**(Math.min(level,threshold)-1);for(let i=threshold;i<level;i++)value=Math.trunc(value*1.4);return Math.max(100,value);}
 function yieldSaleUnitPrice(record){
@@ -535,12 +557,10 @@ function yieldFloorModel(floor,mode='materials'){
   if(!share)continue;
   const gather=(money?[]:floor.fields.materialInfos).filter(e=>(context==='room'||!e.isRoom)&&e.frequency!==0),gw=materialSelectionWeights(gather,'gathering');
   for(const e of gather){const p=(gw.get(e)||0)*share,tools=rows.filter(r=>r.type==='item'&&r.fields.canGetMaterial?.ref===e.materialMaster.ref&&materialToolAccessible(r));if(!tools.length)continue;add(e.materialMaster.ref,p,'gather',tools);gatherSeconds+=p*Math.min(...tools.map(t=>t.fields.getMaterialTime))*ADVENTURE_TICK_SECONDS;}
-  const groups=yieldMonsterGroups(floor,context),mw=materialSelectionWeights(groups,'monster'),encounterP=[...mw.values()].reduce((n,p)=>n+p,0);
-  // Additional groups are scheduled only when the first call succeeds.
-  const repeats=1+Math.max(0,floor.fields.maxMonsterAppearanceCount-1)*encounterP;
-  for(const group of groups){const selection=(mw.get(group)||0)*share*repeats;battles+=selection;for(const wrap of group.wrapMonsterMasters){const monster=records[wrap.master.ref];if(!monster)continue;goldMonster+=selection*expectedMonsterGold(monster.fields.gold)*yieldSettings.winPercent/100;if(!money)for(const reward of monsterItemSaleRewards(monster))addSale(reward.id,selection*reward.chance*yieldSettings.winPercent/100);for(const id of new Set((monster.fields.rewardMaterials||[]).map(e=>e.materialMaster.ref)))add(id,selection*materialRewardChance(monster,id)*yieldSettings.winPercent/100,'drop');}}
-  const entries=yieldChestEntries(floor,context),cw=materialSelectionWeights(entries,'monster');
-  for(const e of entries){const p=(cw.get(e)||0)*share;chests+=p;const lo=e.chest.minGold,hi=e.chest.maxGold,mean=hi>lo?(lo+hi-1)/2:lo;const boost=wikiState.kingdom===1?10:wikiState.kingdom===2?5:1;goldChest+=p*mean*boost*yieldSettings.openPercent/100;if(!money&&hi<=0&&lo<=0){const c=e.chest;if(records[c.material?.ref]?.type==='material')addSale(c.material.ref,p*yieldSettings.openPercent/100);else if(!['weapon','armor','accessory'].some(k=>c[k]?.ref&&c[k].ref!=='0'))addSale(c.item?.ref,p*yieldSettings.openPercent/100);}}
+  const mw=yieldMonsterSchedule(floor,context);
+  for(const [group,mass]of mw){const selection=mass*share;battles+=selection;if(!yieldRepeatTarget(group))continue;for(const wrap of group.wrapMonsterMasters){const monster=records[wrap.master.ref];if(!monster)continue;goldMonster+=selection*expectedMonsterGold(monster.fields.gold)*yieldSettings.winPercent/100;if(!money)for(const reward of monsterItemSaleRewards(monster))addSale(reward.id,selection*reward.chance*yieldSettings.winPercent/100);for(const id of new Set((monster.fields.rewardMaterials||[]).map(e=>e.materialMaster.ref)))add(id,selection*materialRewardChance(monster,id)*yieldSettings.winPercent/100,'drop');}}
+  const entries=floor.fields.chestInfos,cw=yieldSelectionWeights(entries,'chest',context);
+  for(const e of entries){if(!yieldRepeatTarget(e))continue;const p=(cw.get(e)||0)*share;chests+=p;const lo=e.chest.minGold,hi=e.chest.maxGold,mean=hi>lo?(lo+hi-1)/2:lo;const boost=wikiState.kingdom===1?10:wikiState.kingdom===2?5:1;goldChest+=p*mean*boost*yieldSettings.openPercent/100;if(!money&&hi<=0&&lo<=0){const c=e.chest;if(records[c.material?.ref]?.type==='material')addSale(c.material.ref,p*yieldSettings.openPercent/100);else if(!['weapon','armor','accessory'].some(k=>c[k]?.ref&&c[k].ref!=='0'))addSale(c.item?.ref,p*yieldSettings.openPercent/100);}}
  }
  const cycleSeconds=moveSeconds+gatherSeconds+battles*yieldSettings.battleSeconds+chests*yieldSettings.openPercent/100*yieldSettings.chestSeconds+yieldSettings.overheadSeconds;
  const budget=yieldTimeBudget(),{activeSeconds}=budget,visits=cycleSeconds>0?activeSeconds/cycleSeconds:0;
@@ -549,7 +569,7 @@ function yieldFloorModel(floor,mode='materials'){
  const goldSales=goldItemSales;
  const result={floor,mode,...budget,roomShare,moveSeconds,gatherSeconds,battles,chests,cycleSeconds,visits,materials,sales,goldMonster,goldChest,goldItemSales,goldSales,...yieldTotals((goldMonster+goldChest+goldSales)*visits)};yieldFloorCache.set(cacheId,result);return result;
 }
-function yieldModelEvidence(model){return (model.foodLimited?'<p class="wiki-note">식량 한도로 회당 최대 '+yieldNumber(model.runSeconds/3600)+'시간을 계산합니다.</p>':'')+'<p>실측 경로 보정 방 비중 '+yieldNumber(model.roomShare*100)+'% · 평균 구간 '+yieldNumber(model.cycleSeconds/60)+'분 · 회당 '+yieldNumber(model.visits)+'구간 추정</p><p>회당 전투 편성 '+yieldNumber(model.visits*model.battles)+'개 · 반복 상자 선택 '+yieldNumber(model.visits*model.chests)+'회 추정</p>';}
+function yieldModelEvidence(model){return (model.foodLimited?'<p class="wiki-note">식량 한도로 회당 최대 '+yieldNumber(model.runSeconds/3600)+'시간을 계산합니다.</p>':'')+'<p>실측 경로 보정 방 비중 '+yieldNumber(model.roomShare*100)+'% · 평균 구간 '+yieldNumber(model.cycleSeconds/60)+'분 · 회당 '+yieldNumber(model.visits)+'구간 추정</p><p>회당 전투 편성 (클리어 전투 포함) '+yieldNumber(model.visits*model.battles)+'개 · 반복 상자 선택 '+yieldNumber(model.visits*model.chests)+'회 추정</p>';}
 
 const FARMING_EXCEPTION_DUNGEONS=new Set(['-4356431506490543496']);
 function isFarmingException(floor){return floor.dungeons.some(id=>FARMING_EXCEPTION_DUNGEONS.has(id));}
