@@ -452,14 +452,14 @@ function element(id) {
   assert.match(element('rows').innerHTML,/길드 이벤트 클리어 보상/);
   await vm.runInContext("uiRoute('#guide/event')",context);
   assert.match(element('page-path').innerHTML,/data-hub="guild"/);
-  vm.runInContext("wikiState.kingdom=17;wikiState.openMaps=null;wikiState.excluded=[];wikiState.maxFloors={};yieldSettings={...YIELD_DEFAULTS,adventureLevel:10,experienceStartFloor:1};openWiki('experience')",context);
+  vm.runInContext("wikiState.kingdom=17;wikiState.openMaps=null;wikiState.excluded=[];wikiState.maxFloors={};yieldSettings={...YIELD_DEFAULTS};openWiki('experience')",context);
   assert.equal(element('intro-title').textContent,'경험치 던전');
   assert.match(element('wiki-article').innerHTML,/총 획득 경험치가 아닙니다/);
   assert.equal((element('wiki-article').innerHTML.match(/class="wiki-money-entry"/g)||[]).length,5);
   assert.match(element('navigation').innerHTML,/data-wiki="experience"/);
-  element('rows').onchange({target:{closest:selector=>selector==='[data-yield-setting]'?{dataset:{yieldSetting:'experienceStartFloor'},value:'3'}:null}});
-  assert.equal(vm.runInContext('yieldSettings.experienceStartFloor',context),3);
-  assert.match(element('wiki-article').innerHTML,/출발 3층/);
+  assert.ok(!element('wiki-article').innerHTML.includes('data-yield-setting="adventureLevel"'));
+  assert.ok(!element('wiki-article').innerHTML.includes('data-yield-setting="experienceStartFloor"'));
+  assert.match(element('wiki-article').innerHTML,/전체 던전의 층별 경험치/);
   assert.equal(element('error').textContent,'');
   console.log('AoA3 frontend smoke passed: gzip load, multilingual search, acquisition links, dungeon detail, and floor/level filters. Browser rendering not covered.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
