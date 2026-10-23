@@ -12,23 +12,25 @@ for(const [delta,numerator,denominator,timeDivisor]of cases)for(const R of [0,1,
  const p=experienceReturnParts(R,T,delta);
  assert.equal(p.combatExperience,Math.trunc(R*numerator/denominator));assert.equal(p.timeExperience,Math.trunc(T/timeDivisor));casesChecked++;
 }
-const testDungeon={id:'experience-test',fields:{caveLevelMasters:[{ref:'exp-a'},{ref:'exp-b'},{ref:'exp-c'},{ref:'exp-d'}]}};
-records['experience-test']=testDungeon;[10,11,12,13].forEach((level,i)=>records[['exp-a','exp-b','exp-c','exp-d'][i]]={level});
-const target={floor:4,dungeons:['experience-test']};
-assert.equal(experienceAverageLevel(target,1),11);assert.equal(experienceAverageLevel(target,3),12);assert.equal(experienceAverageLevel(target,4),13);assert.equal(experienceAverageLevel(target,5),null);assert.equal(experienceAverageLevel(target,0),null);
-for(const id of ['experience-test','exp-a','exp-b','exp-c','exp-d'])delete records[id];
 const migrated=cleanYieldSettings({adventureLevel:10.8,experienceStartFloor:3.3,hours:5});assert.equal(migrated.hours,5);assert.equal(Object.hasOwn(migrated,'adventureLevel'),false);assert.equal(Object.hasOwn(migrated,'experienceStartFloor'),false);
 wikiState.kingdom=17;yieldSettings={...YIELD_DEFAULTS};
 const all=wikiExperienceCandidates();assert.ok(all.length);assert.ok(all.every((x,i,a)=>Number.isFinite(x.perRun)&&x.perRun===x.combatExperience+x.timeExperience&&x.gatherSeconds===0&&(!i||a[i-1].perRun>=x.perRun)));
 const h=wikiExperience();assert.ok(h.includes('귀환 기본 경험치'));assert.ok(h.includes('총 획득 경험치가 아닙니다'));assert.equal((h.match(/class="wiki-money-entry"/g)||[]).length,5);
 const id=all[0].floor.dungeons[0];wikiState.excluded=[id];assert.ok(wikiExperienceCandidates().every(x=>!x.floor.dungeons.includes(id)));wikiState.excluded=[];wikiState.maxFloors={[id]:0};assert.ok(wikiExperienceCandidates().every(x=>!x.floor.dungeons.includes(id)));wikiState.maxFloors={};
-assert.ok(all.every(x=>x.referenceLevel===x.averageLevel&&x.delta===0&&x.combatExperience===Math.trunc(x.combatPool/2)&&x.timeExperience===Math.trunc(Math.floor(x.activeSeconds/10)/8)));
+assert.ok(all.every(x=>x.referenceLevel===x.floorLevel&&x.delta===0&&x.combatExperience===Math.trunc(x.combatPool/2)&&x.timeExperience===Math.trunc(Math.floor(x.activeSeconds/10)/8)));
+assert.ok(all.every(x=>x.floorLevel===x.floor.level&&x.referenceLevel===x.floor.level));
+assert.ok(h.includes('해당 층만 반복 탐험'));assert.ok(!h.includes('1층 출발'));
+// Changing an earlier floor cannot affect the target-only reference or payout.
+const deep=all.find(x=>x.floor.floor>1&&records[records[x.floor.dungeons[0]].fields.caveLevelMasters[0].ref].id!==x.floor.id);assert.ok(deep);
+const first=records[records[deep.floor.dungeons[0]].fields.caveLevelMasters[0].ref],oldLevel=first.level;
+const snapshot=experienceFloorModel(deep.floor);first.level=oldLevel+100;
+assert.equal(experienceFloorModel(deep.floor).referenceLevel,snapshot.referenceLevel);assert.equal(experienceFloorModel(deep.floor).perRun,snapshot.perRun);first.level=oldLevel;
 assert.equal((h.match(/data-experience-floor=/g)||[]).length,all.length);
 assert.ok(!h.includes('data-yield-setting="adventureLevel"'));assert.ok(!h.includes('data-yield-setting="experienceStartFloor"'));
 const before=all[0].perRun;yieldSettings.adventureLevel=99;yieldSettings.experienceStartFloor=999;assert.equal(wikiExperienceCandidates()[0].perRun,before);delete yieldSettings.adventureLevel;delete yieldSettings.experienceStartFloor;
 assert.equal(experienceFloorModel(all[0].floor,0),null);
-const same=experienceFloorModel(all[0].floor,all[0].averageLevel);assert.equal(same.perRun,before);
-const lower=experienceFloorModel(all[0].floor,Math.max(1,all[0].averageLevel-1));assert.ok(lower.perRun>=same.perRun);
+const same=experienceFloorModel(all[0].floor,all[0].floorLevel);assert.equal(same.perRun,before);
+const lower=experienceFloorModel(all[0].floor,Math.max(1,all[0].floorLevel-1));assert.ok(lower.perRun>=same.perRun);
 yieldSettings={...YIELD_DEFAULTS,transitMinutes:600};assert.equal(wikiExperienceCandidates().length,0);
 yieldSettings={...YIELD_DEFAULTS,winPercent:0};const noWin=experienceFloorModel(all[0].floor);assert.equal(noWin.combatExperience,0);assert.ok(noWin.timeExperience>=0);
 console.log('Experience checks passed: '+casesChecked+' native return fixtures; automatic per-floor reference, legacy settings ignored, all-floor table, 5 unique dungeon entries, and no gathering.');

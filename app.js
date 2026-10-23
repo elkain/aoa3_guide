@@ -621,13 +621,6 @@ function wikiMoney(){
 // Ordinary target-floor renewal approximation, not a full adventure replay.
 // Native ReturnCastle truncates the combat pool and the time component separately.
 function experienceFactors(delta){return delta>=2?[2,2]:delta===1?[1,4]:delta===0?[0.5,8]:delta===-1?[0.25,16]:delta===-2?[1/6,32]:delta===-3?[0.125,64]:[0,Infinity];}
-function experienceAverageLevel(floor,start=1){
- const dungeon=records[floor.dungeons[0]];
- if(!Number.isInteger(start)||start<1||start>floor.floor)return null;
- const span=dungeon.fields.caveLevelMasters.slice(start-1,floor.floor).map(x=>records[x.ref]?.level);
- if(span.length!==floor.floor-start+1||span.some(x=>!Number.isFinite(x)))return null;
- return Math.trunc(span.reduce((n,x)=>n+x,0)/span.length);
-}
 function experienceReturnParts(combatPool,ticks,delta){
  const [multiplier,divisor]=experienceFactors(delta);
  // Explicit division avoids floating reciprocal rounding at integer boundaries.
@@ -635,33 +628,33 @@ function experienceReturnParts(combatPool,ticks,delta){
  return {combatExperience:combat,timeExperience:multiplier?Math.trunc(Math.floor(ticks)/divisor):0};
 }
 function experienceFloorModel(floor,adventureLevel=null){
- const averageLevel=experienceAverageLevel(floor);
- if(averageLevel===null)return null;
- const referenceLevel=adventureLevel===null?averageLevel:adventureLevel;
+ const floorLevel=floor.level;
+ if(!Number.isInteger(floorLevel)||floorLevel<1)return null;
+ const referenceLevel=adventureLevel===null?floorLevel:adventureLevel;
  if(!Number.isInteger(referenceLevel)||referenceLevel<1)return null;
  const base=yieldFloorModel(floor,'money');if(!base)return null;
- const delta=averageLevel-referenceLevel,combatPool=base.combatExp*base.visits;
+ const delta=floorLevel-referenceLevel,combatPool=base.combatExp*base.visits;
  const parts=experienceReturnParts(combatPool,base.activeSeconds/ADVENTURE_TICK_SECONDS,delta);
- return {...base,averageLevel,referenceLevel,delta,combatPool,...parts,...yieldTotals(parts.combatExperience+parts.timeExperience)};
+ return {...base,floorLevel,referenceLevel,delta,combatPool,...parts,...yieldTotals(parts.combatExperience+parts.timeExperience)};
 }
 function wikiExperienceCandidates(){return rows.filter(r=>r.type==='floor'&&wikiFloorAllowed(r)).map(floor=>experienceFloorModel(floor)).filter(x=>x&&x.perRun>0).sort((a,b)=>b.perRun-a.perRun||wikiRisk(a.floor)-wikiRisk(b.floor)||a.floor.id.localeCompare(b.floor.id));}
 function experienceLevelTable(x){
- const a=x.averageLevel,levels=[{level:a-2,label:'Lv. '+(a-2)+' 이하'},...[-1,0,1,2,3].map(offset=>({level:a+offset,label:'Lv. '+(a+offset)})),{level:a+4,label:'Lv. '+(a+4)+' 이상'}].filter(r=>r.level>=1);
+ const a=x.floorLevel,levels=[{level:a-2,label:'Lv. '+(a-2)+' 이하'},...[-1,0,1,2,3].map(offset=>({level:a+offset,label:'Lv. '+(a+offset)})),{level:a+4,label:'Lv. '+(a+4)+' 이상'}].filter(r=>r.level>=1);
  return '<details class="wiki-method"><summary>모험가 레벨별 예상 경험치</summary><div class="wiki-table-wrap"><table class="wiki-table"><thead><tr><th>모험가 레벨</th><th>1회 귀환 기본분</th></tr></thead><tbody>'+levels.map(r=>{const p=experienceReturnParts(x.combatPool,x.activeSeconds/ADVENTURE_TICK_SECONDS,a-r.level);return '<tr><th>'+r.label+(r.level===a?' · 비교 기준':'')+'</th><td>'+yieldNumber(p.combatExperience+p.timeExperience)+'</td></tr>';}).join('')+'</tbody></table></div></details>';
 }
 function experienceFloorTable(list){
  const groups=new Map();for(const x of list){const id=x.floor.dungeons[0];if(!groups.has(id))groups.set(id,[]);groups.get(id).push(x);}
- return '<details class="wiki-method experience-all-floors"><summary>전체 던전의 층별 경험치 보기 · '+list.length+'개 층</summary><p>현재 왕국·개방 지역·도달 층 조건 안의 층을 모두 계산했습니다. 각 층의 기준 모험가 레벨은 1층부터 해당 층까지의 평균 레벨입니다.</p>'+[...groups].map(([id,values])=>'<details class="wiki-method"><summary>'+esc(getName(id))+' · '+values.length+'개 층</summary><div class="wiki-table-wrap"><table class="wiki-table"><thead><tr><th>던전·층</th><th>기준 모험가</th><th>1회 경험치</th><th>시간당 경험치</th></tr></thead><tbody>'+values.sort((a,b)=>a.floor.floor-b.floor.floor).map(x=>'<tr data-experience-floor="'+esc(x.floor.id)+'"><th>'+materialFloorLink(x.floor)+'</th><td>Lv. '+x.referenceLevel+'</td><td>'+yieldNumber(x.perRun)+'</td><td>'+yieldNumber(x.perHour)+'</td></tr>').join('')+'</tbody></table></div></details>').join('')+'</details>';
+ return '<details class="wiki-method experience-all-floors"><summary>전체 던전의 층별 경험치 보기 · '+list.length+'개 층</summary><p>현재 왕국·개방 지역·도달 층 조건 안의 층을 모두 계산했습니다. 각 층만 반복 탐험하며, 기준 모험가 레벨은 해당 층의 기본 레벨입니다.</p>'+[...groups].map(([id,values])=>'<details class="wiki-method"><summary>'+esc(getName(id))+' · '+values.length+'개 층</summary><div class="wiki-table-wrap"><table class="wiki-table"><thead><tr><th>던전·층</th><th>기준 모험가</th><th>1회 경험치</th><th>시간당 경험치</th></tr></thead><tbody>'+values.sort((a,b)=>a.floor.floor-b.floor.floor).map(x=>'<tr data-experience-floor="'+esc(x.floor.id)+'"><th>'+materialFloorLink(x.floor)+'</th><td>Lv. '+x.referenceLevel+'</td><td>'+yieldNumber(x.perRun)+'</td><td>'+yieldNumber(x.perHour)+'</td></tr>').join('')+'</tbody></table></div></details>').join('')+'</details>';
 }
 function wikiExperience(){
  const list=wikiState.kingdom?wikiExperienceCandidates():[],seen=new Set(),picks=list.filter(x=>{const id=x.floor.dungeons[0];if(seen.has(id))return false;seen.add(id);return true;}).slice(0,5);
  return `<p class="wiki-lead">돈 수급처럼 층별 경험치를 자동 계산해 던전 1~5위와 추천 층을 표시합니다.</p>
- <p>비교 기준은 <strong>1층 출발 · 각 층의 평균 레벨과 같은 모험가</strong>입니다. 모험가 레벨과 출발 층을 입력할 필요가 없습니다.</p>
+ <p>비교 기준은 <strong>해당 층만 반복 탐험 · 해당 층과 같은 레벨의 모험가</strong>입니다. 모험가 레벨과 출발 층을 입력할 필요가 없습니다.</p>
  <p class="wiki-note">표시는 1명당 귀환 기본 경험치이며 총 획득 경험치가 아닙니다. 실제 모험가 레벨이 다르면 경험치가 달라집니다. 추천 아래에서 레벨별 값을 펼쳐볼 수 있습니다.</p>
  ${yieldSettingsPanel()}<h2>현재 왕국 경험치 던전 1~5위</h2><p>왕국 ${wikiState.kingdom||'미설정'} · 후보 ${list.length}개 층 · ${seen.size}개 던전 · 동레벨 기준</p>
- <div id="wiki-experience-list">${picks.length?picks.map((x,i)=>`<section class="wiki-money-entry"><h3><span class="wiki-rank">${i+1}</span>${materialFloorLink(x.floor)}</h3><div class="yield-numbers"><strong>${yieldNumber(x.perRun)} 경험치 / 1명</strong><small>1회 귀환 기본분 추정</small><small>시간당 ${yieldNumber(x.perHour)} 경험치 / 1명</small></div><p>기준 모험가 <strong>Lv. ${x.referenceLevel}</strong> · 1층 출발</p>${experienceLevelTable(x)}<details class="wiki-method"><summary>계산 근거</summary><p>전투 기본분 ${yieldNumber(x.combatExperience)} + 시간 기본분 ${yieldNumber(x.timeExperience)}</p>${yieldModelEvidence(x)}</details><p><button data-guide-plan="${esc(x.floor.dungeons[0])}">출발 준비 →</button> <button data-wiki-exclude="${esc(x.floor.dungeons[0])}">아직 미개방 · 제외</button></p></section>`).join(''):!wikiState.kingdom?'<p>돈 수급과 같은 내 왕국 레벨을 설정하면 순위를 표시합니다.</p>':'<p>현재 조건에 맞는 층이 없습니다. 개방 지역·도달 층·탐험 시간을 확인하세요.</p>'}</div>
+ <div id="wiki-experience-list">${picks.length?picks.map((x,i)=>`<section class="wiki-money-entry"><h3><span class="wiki-rank">${i+1}</span>${materialFloorLink(x.floor)}</h3><div class="yield-numbers"><strong>${yieldNumber(x.perRun)} 경험치 / 1명</strong><small>1회 귀환 기본분 추정</small><small>시간당 ${yieldNumber(x.perHour)} 경험치 / 1명</small></div><p>기준 모험가 <strong>Lv. ${x.referenceLevel}</strong> · 해당 층만 반복</p>${experienceLevelTable(x)}<details class="wiki-method"><summary>계산 근거</summary><p>전투 기본분 ${yieldNumber(x.combatExperience)} + 시간 기본분 ${yieldNumber(x.timeExperience)}</p>${yieldModelEvidence(x)}</details><p><button data-guide-plan="${esc(x.floor.dungeons[0])}">출발 준비 →</button> <button data-wiki-exclude="${esc(x.floor.dungeons[0])}">아직 미개방 · 제외</button></p></section>`).join(''):!wikiState.kingdom?'<p>돈 수급과 같은 내 왕국 레벨을 설정하면 순위를 표시합니다.</p>':'<p>현재 조건에 맞는 층이 없습니다. 개방 지역·도달 층·탐험 시간을 확인하세요.</p>'}</div>
  ${list.length?experienceFloorTable(list):''}
- <details class="wiki-method"><summary>경험치 비교 기준과 포함 범위</summary><p>모든 후보를 1층 출발로 계산하며, 출발~목표 층의 레벨을 정수 평균해 기준 모험가 레벨로 사용합니다. 동레벨 귀환 기본분은 전투 누적 보상의 절반과 시간 틱의 8분의 1을 각각 절삭한 뒤 합칩니다. 이 공통 기준의 순위는 모든 모험가 레벨에서의 순위를 뜻하지 않습니다.</p><p>채집 없이 목표 층에 머무는 반복 탐험 근사입니다. 중간 층·귀환 중 경험치, 직업 행동·상자 발견·함정·클리어 보너스, 배율·상한·생존 상태는 더하지 않습니다. 반복형 클리어 전투는 시간에만 포함합니다. 도적의 숲도 경험치 후보에 포함합니다.</p></details>${yieldPolicy()}`;
+ <details class="wiki-method"><summary>경험치 비교 기준과 포함 범위</summary><p>모든 후보는 해당 층만 반복 탐험하는 조건으로 계산하며, 해당 층의 기본 레벨을 기준 모험가 레벨로 사용합니다. 동레벨 귀환 기본분은 전투 누적 보상의 절반과 시간 틱의 8분의 1을 각각 절삭한 뒤 합칩니다. 이 공통 기준의 순위는 모든 모험가 레벨에서의 순위를 뜻하지 않습니다.</p><p>채집 없이 목표 층에 머무는 반복 탐험 근사입니다. 중간 층·귀환 중 경험치, 직업 행동·상자 발견·함정·클리어 보너스, 배율·상한·생존 상태는 더하지 않습니다. 반복형 클리어 전투는 시간에만 포함합니다. 도적의 숲도 경험치 후보에 포함합니다.</p></details>${yieldPolicy()}`;
 }
 function wikiParty(){const roles=[['버티는 전투 역할',['Swordsman','WarBlader','Viking','Lancer','MartialArtist'],'공격·회피가 가능한 직업과 현재 사용할 무기·방어 수단을 함께 확인하세요. 직업 이름만으로 공격을 대신 맞아주는 탱커가 보장되지는 않습니다.'],['회복과 소생',['Priest','Healer'],'프리스트는 치료·보호 마법, 힐러는 기절한 모험가 소생과 약 효과 보조가 설명되어 있습니다. 사용할 수 있는 마법·MP·약도 챙기세요.'],['공격 무효 대응',['Magician','Shaman'],'물리 공격 무효 적이 있으면 마법 공격 수단을 준비하세요. 주술사는 한 손·정령 활동·철 장비 제한을 확인해야 합니다.'],['상자와 함정 탐색',['Thief','Ranger'],'도적은 상자 탐색·자물쇠, 레인저는 자연 속 함정·상자 발견이 직업 설명에 연결됩니다. 목표 상자의 조건에 맞춰 역할을 보완하세요.'],['재료 수급 효율',['TreasureHunter','CraftSage'],'보물 사냥꾼은 직업 레벨 이하 몬스터 드롭 확률 상승, 크래프트 세이지는 도구보다 직업 레벨이 높을 때 재료 획득 시간 단축이 설명되어 있습니다.'],['길 찾기와 리더 보조',['MapCreator','Strategist','Sage'],'지도 제작자는 동굴 레벨 이상의 직업 레벨 조건과 막다른 길 감소가 안내됩니다. 전술가·현자는 각 직업 문서의 리더·이탈 관련 설명을 확인하세요.']];return '<p class="wiki-lead">살아 돌아올 수 있는 전투·회복을 먼저 갖춘 뒤, 목표 재료에 맞는 탐색·수급 역할을 더하세요. 아래는 직업 설명에 근거한 역할 분류이며 고정 인원 편성이나 생존 보장은 아닙니다.</p><div class="wiki-toc"><strong>목차</strong><a href="#wiki/party" data-wiki-anchor="party-roles">파티에 필요한 역할</a><a href="#wiki/party" data-wiki-anchor="party-safety">출발 전 점검</a></div><h2 id="party-roles">파티에 필요한 역할</h2>'+roles.map(([title,names,text])=>'<section class="wiki-role"><h3>'+title+'</h3><p>'+text+'</p><div>'+names.map(name=>rows.find(r=>r.type==='job'&&r.internal===name)).filter(Boolean).map(r=>{const building=rows.find(b=>b.type==='building'&&b.internal===(r.internal==='Ranger'?'JobRenger':'Job'+r.internal));const locked=building&&wikiState.kingdom&&building.fields.needCastleLevel>wikiState.kingdom;return '<span class="wiki-job">'+jump(r.id)+(building?'<small>훈련 시설 건설: 왕국 '+building.fields.needCastleLevel+(locked?' · 현재 왕국 조건 미달':'')+'</small>':'')+'</span>';}).join('')+'</div></section>').join('')+'<h2 id="party-safety">출발 전에 확인할 순서</h2><ol><li>목표 던전의 물리·활 공격 무효와 특수기를 확인합니다.</li><li>회복 마법·MP·약과 기절 시 회복 수단을 점검합니다.</li><li>어둠·함정과 상자 필요 아이템을 점검합니다.</li><li>재료 드롭이 목표라면 보물 사냥꾼의 적용 레벨 조건, 도구라면 크래프트 세이지 조건을 확인합니다.</li><li>길드 이벤트는 지역 고유 보정을 더한 추가 난도를 확인합니다.</li></ol><button data-guide-tab="prepare">목표 던전을 골라 구체적인 준비 확인 →</button>';}
  const dungeons=rows.filter(r=>r.type==='dungeon'&&(!guideState.map||r.maps.includes(guideState.map))).sort((a,b)=>(a.level??Infinity)-(b.level??Infinity)||a.name.localeCompare(b.name,'ko'));
