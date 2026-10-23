@@ -459,6 +459,13 @@ function element(id) {
   assert.match(element('navigation').innerHTML,/data-wiki="experience"/);
   assert.ok(!element('wiki-article').innerHTML.includes('data-yield-setting="adventureLevel"'));
   assert.ok(!element('wiki-article').innerHTML.includes('data-yield-setting="experienceStartFloor"'));
+  vm.runInContext("$('rows').onchange({target:{closest:s=>s==='[data-yield-setting]'?{dataset:{yieldSetting:'experienceLevel'},value:'10'}:null}})",context);
+  assert.match(element('wiki-article').innerHTML,/모험가 Lv\. 10/);
+  assert.equal(vm.runInContext('yieldSettings.experienceLevel',context),10);
+  vm.runInContext("$('rows').onchange({target:{closest:s=>s==='[data-yield-setting]'?{dataset:{yieldSetting:'experienceLevel'},value:''}:null}})",context);
+  assert.equal(vm.runInContext('yieldSettings.experienceLevel',context),null);
+  assert.match(element('wiki-article').innerHTML,/각 층 동레벨 기준/);
+
   assert.match(element('wiki-article').innerHTML,/전체 던전의 층별 경험치/);
   assert.equal(element('error').textContent,'');
   console.log('AoA3 frontend smoke passed: gzip load, multilingual search, acquisition links, dungeon detail, and floor/level filters. Browser rendering not covered.');

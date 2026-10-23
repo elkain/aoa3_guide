@@ -31,6 +31,12 @@ const before=all[0].perRun;yieldSettings.adventureLevel=99;yieldSettings.experie
 assert.equal(experienceFloorModel(all[0].floor,0),null);
 const same=experienceFloorModel(all[0].floor,all[0].floorLevel);assert.equal(same.perRun,before);
 const lower=experienceFloorModel(all[0].floor,Math.max(1,all[0].floorLevel-1));assert.ok(lower.perRun>=same.perRun);
+assert.equal(cleanYieldSettings({experienceLevel:25}).experienceLevel,25);
+for(const level of [0,-1,2.5,10000,NaN,null])assert.equal(cleanYieldSettings({experienceLevel:level}).experienceLevel,null);
+yieldSettings={...YIELD_DEFAULTS,experienceLevel:10};const levelSelected=wikiExperienceCandidates();assert.ok(levelSelected.length);assert.ok(levelSelected.every(x=>x.referenceLevel===10&&x.delta===x.floor.level-10));
+assert.ok(levelSelected.every(x=>x.perRun===experienceFloorModel(x.floor,10).perRun));
+assert.ok(wikiExperience().includes('모험가 Lv. 10'));assert.ok(wikiExperience().includes('data-yield-setting="experienceLevel"'));
+yieldSettings=cleanYieldSettings({...yieldSettings,experienceLevel:0});assert.equal(wikiExperienceCandidates()[0].perRun,before);
 yieldSettings={...YIELD_DEFAULTS,transitMinutes:600};assert.equal(wikiExperienceCandidates().length,0);
 yieldSettings={...YIELD_DEFAULTS,winPercent:0};const noWin=experienceFloorModel(all[0].floor);assert.equal(noWin.combatExperience,0);assert.ok(noWin.timeExperience>=0);
 console.log('Experience checks passed: '+casesChecked+' native return fixtures; automatic per-floor reference, legacy settings ignored, all-floor table, 5 unique dungeon entries, and no gathering.');
