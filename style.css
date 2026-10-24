@@ -72,3 +72,9 @@ dialog{background:#15232b;color:var(--text);border:1px solid #3d5863;border-radi
 .home-heading h2,.directory-heading h2{padding-bottom:0;border-bottom:0}.quick-access{bottom:16px}.wiki-article .wiki-inline-controls{align-items:end}@media(max-width:760px){.quick-access{bottom:0}.wiki-profile select{min-height:42px}.progress-disclosure>summary{min-height:48px}}
 
 .supply-card.experience-portal{background:linear-gradient(125deg,#30334a,#222b38);border-color:#596382}.experience-portal .portal-top{color:#b7bce7}.supply-card.experience-portal>strong{color:#e0e3ff}.experience-controls{margin:20px 0;gap:18px}.experience-controls label{display:flex;flex-direction:column;gap:8px}.experience-controls input{min-height:44px;max-width:180px}.experience-controls small{font-size:11px;color:var(--muted)}@media(min-width:1100px){.supply-portals{grid-template-columns:repeat(3,minmax(0,1fr))}.supply-portals .supply-card{padding:23px 20px}.supply-portals .supply-card>strong{font-size:25px}}
+
+/* Keep page controls usable on narrow phones. */
+.result-actions{flex-wrap:wrap;align-items:center}
+#list-page{max-width:150px}
+#previous-page:disabled{opacity:.45;cursor:default}
+@media(max-width:480px){.result-actions{justify-content:flex-start;gap:7px}.result-actions select{max-width:145px}.result-actions button{padding:7px 9px}}

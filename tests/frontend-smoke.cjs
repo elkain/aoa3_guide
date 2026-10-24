@@ -21,6 +21,7 @@ function element(id) {
   vm.runInContext(source.slice(0,source.lastIndexOf('init().catch('))+'globalThis.ready = init();',context);
   await context.ready;
   assert.match(element('wiki-article').innerHTML,/필요한 재료를 어디서 모을까/);
+  await vm.runInContext("Promise.all(['core','buildings','guild'].map(loadResource))",context);
   const guildRewardSample=vm.runInContext("Object.values(records).find(r=>r.type==='dungeon'&&r.fields.caveLevelMasters.length&&Number.isFinite(r.fields.addGuildEventLevel))",context);
   context.guildRewardSample=guildRewardSample;
   const guildRewardHTML=vm.runInContext('guildClearRewards(guildRewardSample)',context);

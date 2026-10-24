@@ -1,0 +1,40 @@
+// Real archive + controlled network/DOM surfaces; verifies loading races and bounded rendering.
+const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=require('node:path'),vm=require('node:vm');
+const root=path.resolve(__dirname,'..');
+(async()=>{
+ const elements=new Map(),requests=[],listeners={};let unblock,failBuilding=true;
+ const gate=new Promise(resolve=>{unblock=resolve;});
+ const element=id=>{if(!elements.has(id))elements.set(id,{value:id==='sort'?'level':'',innerHTML:'',textContent:'',hidden:false,open:false,addEventListener(){},setAttribute(){},showModal(){this.open=true;},close(){this.open=false;}});return elements.get(id);};
+ let expand;
+ const context=vm.createContext({console,Response,Blob,TextDecoder,DecompressionStream,setTimeout,URL,window:{DecompressionStream,addEventListener(){}},location:{pathname:'/',search:'',hash:''},history:{replaceState(){},pushState(){}},document:{getElementById:element,querySelectorAll:()=>[],querySelector:()=>expand,createElement:()=>({click(){}})},fetch:async url=>{requests.push(url);await gate;if(url==='data/buildings.json'&&failBuilding){failBuilding=false;return new Response('',{status:503});}return new Response(await fs.readFile(path.join(root,url)));}});
+ const source=await fs.readFile(path.join(root,'app.js'),'utf8');
+ vm.runInContext(source.slice(0,source.lastIndexOf('init().catch('))+'globalThis.ready=init();',context);await context.ready;
+ assert.equal(requests.length,0,'Home must not wait for or fetch game data');
+ vm.runInContext("openHub('equipment')",context);assert.equal(requests.length,0,'Category menu needs no archive');
+ const pending=vm.runInContext("setType('building')",context);
+ assert.deepEqual([...requests].sort(),['data/archive.json.gz','data/buildings.json','data/conditions.json','data/terms.json'],'Required requests start together, without guild files');
+ vm.runInContext("openWiki('home')",context);const home=element('rows').innerHTML;
+ unblock();await pending;await vm.runInContext('ensureCore()',context);
+ assert.equal(element('rows').innerHTML,home,'Late response/error must not overwrite navigation');
+ await vm.runInContext("setType('building')",context);
+ assert.equal(element('result-count').textContent,'32개 기록','Failed resource can be retried');
+ assert.equal(requests.filter(x=>x==='data/archive.json.gz').length,1,'Shared archive is loaded once');
+ assert.equal(requests.filter(x=>x==='data/buildings.json').length,2);
+ vm.runInContext("setType('dungeon')",context);
+ const ids=()=>[...element('rows').innerHTML.matchAll(/class="row" data-id="([^"]+)"/g)].map(m=>m[1]);
+ const first=ids();assert.equal(first.length,60);assert.equal(element('previous-page').disabled,true);
+ element('more').onclick();const second=ids();assert.equal(second.length,60);assert.equal(first.some(id=>second.includes(id)),false);assert.equal(element('previous-page').disabled,false);
+ element('previous-page').onclick();assert.deepEqual(ids(),first);
+ element('list-page').value='4';element('list-page').onchange();assert.equal(ids().length,56);assert.equal(element('more').hidden,true);
+ vm.runInContext("$('query').value='없을이름XYZ';limit=60;render()",context);assert.equal(vm.runInContext('limit',context),60);assert.equal(element('more').hidden,true);
+ // Exercise the actual nested disclosure listeners with a small DOM surface.
+ const host={children:[],set innerHTML(html){this.html=html;this.children=[...html.matchAll(/data-experience-dungeon="([^"]+)"/g)].map(m=>({dataset:{experienceDungeon:m[1]},open:false,body:{innerHTML:''},addEventListener(name,fn){this.toggle=fn;},querySelector(){return this.body;}}));},querySelectorAll(){return this.children;}};
+ expand={dataset:{},open:false,addEventListener(name,fn){listeners[name]=fn;},querySelector(){return host;}};
+ vm.runInContext("wikiState.kingdom=17;openWiki('experience')",context);
+ assert.equal(element('wiki-article').innerHTML.includes('data-experience-floor='),false);
+ expand.open=true;listeners.toggle();assert.ok(host.children.length>1);assert.ok(host.children.every(d=>d.body.innerHTML===''));
+ const d=host.children[0];d.open=true;d.toggle();const table=d.body.innerHTML;
+ const expected=vm.runInContext('experienceTableCandidates.filter(x=>x.floor.dungeons[0]==='+JSON.stringify(d.dataset.experienceDungeon)+').length',context);
+ assert.equal((table.match(/data-experience-floor=/g)||[]).length,expected);assert.equal(host.children[1].body.innerHTML,'');d.toggle();assert.equal(d.body.innerHTML,table);
+ console.log('Loading/pagination passed: zero home requests, parallel lazy dependencies, stale-navigation cancellation, failed-resource retry, shared archive, 60-row page boundaries, deferred selected-dungeon rows.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

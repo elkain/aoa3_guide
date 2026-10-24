@@ -25,7 +25,7 @@ const deep=all.find(x=>x.floor.floor>1&&records[records[x.floor.dungeons[0]].fie
 const first=records[records[deep.floor.dungeons[0]].fields.caveLevelMasters[0].ref],oldLevel=first.level;
 const snapshot=experienceFloorModel(deep.floor);first.level=oldLevel+100;
 assert.equal(experienceFloorModel(deep.floor).referenceLevel,snapshot.referenceLevel);assert.equal(experienceFloorModel(deep.floor).perRun,snapshot.perRun);first.level=oldLevel;
-assert.equal((h.match(/data-experience-floor=/g)||[]).length,all.length);
+assert.equal((h.match(/data-experience-floor=/g)||[]).length,0);assert.ok(h.includes('data-experience-expand'));assert.equal((experienceFloorTable(all).match(/data-experience-floor=/g)||[]).length,all.length);
 assert.ok(!h.includes('data-yield-setting="adventureLevel"'));assert.ok(!h.includes('data-yield-setting="experienceStartFloor"'));
 const before=all[0].perRun;yieldSettings.adventureLevel=99;yieldSettings.experienceStartFloor=999;assert.equal(wikiExperienceCandidates()[0].perRun,before);delete yieldSettings.adventureLevel;delete yieldSettings.experienceStartFloor;
 assert.equal(experienceFloorModel(all[0].floor,0),null);

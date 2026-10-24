@@ -103,14 +103,18 @@ function render(){
  filtered=rows.filter(r=>r.type===selected&&(selected!=='building'||buildingData.buildings[r.id]?.category===buildingGroup)&&(!guildDungeonMode||Boolean(guildDungeonData.dungeons[r.id]))&&(!q||[displayName(r),r.name,r.english,r.japanese,r.internal,...r.tags.map(t=>t.name)].some(s=>s.normalize('NFKC').toLocaleLowerCase().includes(q)))&&(!tag||r.tags.some(t=>t.name===tag))&&(!map||r.maps.includes(map))&&(!dungeon||r.dungeons.includes(dungeon))&&(!kind||String(r.fields.kind)===kind)&&(!min||(r.type==='building'?r.fields.needCastleLevel:r.level)!==null&&(r.type==='building'?r.fields.needCastleLevel:(r.maxLevel??r.level))>=Number(min))&&(!max||(r.type==='building'?r.fields.needCastleLevel:r.level)!==null&&(r.type==='building'?r.fields.needCastleLevel:r.level)<=Number(max))&&(!floor||selected!=='floor'||r.floor===Number(floor)));
  filtered.sort((a,b)=>$('sort').value==='name'?a.name.localeCompare(b.name,'ko'):((selected==='building'?a.fields.needCastleLevel:(a.level??Infinity))-(selected==='building'?b.fields.needCastleLevel:(b.level??Infinity)))*($('sort').value==='level-desc'?-1:1)||a.name.localeCompare(b.name,'ko'));
  $('result-count').textContent=`${filtered.length.toLocaleString()}개 기록`;
- $('rows').innerHTML=filtered.length?filtered.slice(0,limit).map(r=>{
+ limit=Math.max(60,Math.min(limit,Math.max(1,Math.ceil(filtered.length/60))*60));
+ const page=limit/60,pages=Math.max(1,Math.ceil(filtered.length/60));
+ $('list-page').innerHTML=Array.from({length:pages},(_,i)=>'<option value="'+(i+1)+'"'+(page===i+1?' selected':'')+'>'+(i+1)+' / '+pages+' 페이지</option>').join('');
+ $('previous-page').disabled=page===1;
+ $('rows').innerHTML=filtered.length?filtered.slice(limit-60,limit).map(r=>{
   if(r.type==='building')return buildingListRow(r);
   const places=[...r.maps.map(getName),...r.dungeons.filter(id=>id!==r.id).slice(0,2).map(getName)].join(' / ');
   const caption=guildDungeonMode?guildDungeonData.dungeons[r.id].floors.length+'개 층에 길드 추가 콘텐츠 · '+places:r.type==='dungeon'?`${r.fields.caveLevelMasters.length}개 층 · ${places||r.english}`:places||r.english||r.japanese||r.internal;
   return `<button class="row" data-id="${esc(r.id)}" ${guildDungeonMode?'data-guild-record="'+esc(r.id)+'"':''}><span class="level"><small>${r.type==='dungeon'?(guildDungeonMode?'기본 레벨':'레벨 범위'):'레벨'}</small>${esc(levelText(r))}</span><span><span class="row-name">${esc(displayName(r))}</span><span class="row-subtitle">${esc(caption)}</span>${tagMarkup(r,true)}</span><span class="row-meta">${esc(r.fields.kind!==undefined?concise(namedField(r,'kind',r.fields.kind)):TYPES[r.type])}</span><span class="row-tag">${r.type==='floor'?r.floor+'층':r.type==='dungeon'?r.fields.caveLevelMasters.length+'개 층':['weapon','armor','accessory','item','material'].includes(r.type)?((shopTo.get(r.id)||[]).length+lootGroups(lootTo.get(r.id)||[]).length)+'개 획득처':''}</span><span class="arrow" aria-hidden="true">↗</span></button>`;
  }).join(''):'<p class="empty">조건에 맞는 기록이 없습니다.<br>검색어나 필터를 바꿔보세요.</p>';
  if(selected==='building')$('rows').innerHTML=buildingTabs()+$('rows').innerHTML;
- $('more').hidden=filtered.length<=limit;$('more').textContent=`다음 ${Math.min(60,filtered.length-limit)}개 보기 (${Math.min(limit,filtered.length)} / ${filtered.length})`;
+ $('more').hidden=filtered.length<=limit;$('more').textContent=`다음 페이지 → (${page} / ${pages})`;
 }
 function buildingTabs(){return '<div class="building-tabs" aria-label="건물 분류"><button data-building-group="base" aria-pressed="'+(buildingGroup==='base')+'">기본 건물 · 32</button><button data-building-group="job" aria-pressed="'+(buildingGroup==='job')+'">직업 건물 · 19</button></div><p class="muted-note">건물을 선택하면 각 레벨의 해금 내용과 그 레벨에 도달하는 데 필요한 골드·재료를 볼 수 있습니다.</p>';}
 function buildingListRow(r){const b=buildingData.buildings[r.id],first=b.stages[0];return '<button class="row building-row" data-id="'+esc(r.id)+'"><span class="level"><small>왕국</small>'+r.fields.needCastleLevel+'</span><span><span class="row-name">'+esc(displayName(r))+'</span><span class="row-subtitle">'+(b.job?esc(getName(b.job))+' 훈련 · ':'')+'건설 '+num(first.gold)+' G · Lv. 1–'+b.stages.length+' 성장 정보</span>'+(b.prerequisite!=='0'?'<span class="row-subtitle">선행 건물: '+esc(getName(b.prerequisite))+'</span>':'')+'</span><span class="row-meta">'+(b.category==='job'?'직업 건물':'기본 건물')+'</span><span class="arrow" aria-hidden="true">↗</span></button>';}
@@ -642,9 +646,11 @@ function experienceLevelTable(x){
  const a=x.floorLevel,levels=[{level:a-2,label:'Lv. '+(a-2)+' 이하'},...[-1,0,1,2,3].map(offset=>({level:a+offset,label:'Lv. '+(a+offset)})),{level:a+4,label:'Lv. '+(a+4)+' 이상'}].filter(r=>r.level>=1);
  return '<details class="wiki-method"><summary>모험가 레벨별 예상 경험치</summary><div class="wiki-table-wrap"><table class="wiki-table"><thead><tr><th>모험가 레벨</th><th>1회 귀환 기본분</th></tr></thead><tbody>'+levels.map(r=>{const p=experienceReturnParts(x.combatPool,x.activeSeconds/ADVENTURE_TICK_SECONDS,a-r.level);return '<tr><th>'+r.label+(r.level===a?' · 해당 층과 동레벨':'')+'</th><td>'+yieldNumber(p.combatExperience+p.timeExperience)+'</td></tr>';}).join('')+'</tbody></table></div></details>';
 }
+let experienceTableCandidates=[];
+function experienceDungeonTable(values){return '<div class="wiki-table-wrap"><table class="wiki-table"><thead><tr><th>던전·층</th><th>기준 모험가</th><th>1회 경험치</th><th>시간당 경험치</th></tr></thead><tbody>'+values.sort((a,b)=>a.floor.floor-b.floor.floor).map(x=>'<tr data-experience-floor="'+esc(x.floor.id)+'"><th>'+materialFloorLink(x.floor)+'</th><td>Lv. '+x.referenceLevel+'</td><td>'+yieldNumber(x.perRun)+'</td><td>'+yieldNumber(x.perHour)+'</td></tr>').join('')+'</tbody></table></div>';}
 function experienceFloorTable(list){
  const groups=new Map();for(const x of list){const id=x.floor.dungeons[0];if(!groups.has(id))groups.set(id,[]);groups.get(id).push(x);}
- return '<details class="wiki-method experience-all-floors"><summary>전체 던전의 층별 경험치 보기 · '+list.length+'개 층</summary><p>현재 왕국·개방 지역·도달 층 조건 안의 층을 모두 계산했습니다. 각 층만 반복 탐험하며, 기준 모험가 레벨은 입력한 값이며, 비워두면 해당 층의 기본 레벨을 사용합니다.</p>'+[...groups].map(([id,values])=>'<details class="wiki-method"><summary>'+esc(getName(id))+' · '+values.length+'개 층</summary><div class="wiki-table-wrap"><table class="wiki-table"><thead><tr><th>던전·층</th><th>기준 모험가</th><th>1회 경험치</th><th>시간당 경험치</th></tr></thead><tbody>'+values.sort((a,b)=>a.floor.floor-b.floor.floor).map(x=>'<tr data-experience-floor="'+esc(x.floor.id)+'"><th>'+materialFloorLink(x.floor)+'</th><td>Lv. '+x.referenceLevel+'</td><td>'+yieldNumber(x.perRun)+'</td><td>'+yieldNumber(x.perHour)+'</td></tr>').join('')+'</tbody></table></div></details>').join('')+'</details>';
+ return '<details class="wiki-method experience-all-floors"><summary>전체 던전의 층별 경험치 보기 · '+list.length+'개 층</summary><p>현재 왕국·개방 지역·도달 층 조건 안의 층을 모두 계산했습니다. 각 층만 반복 탐험하며, 기준 모험가 레벨은 입력한 값이며, 비워두면 해당 층의 기본 레벨을 사용합니다.</p>'+[...groups].map(([id,values])=>'<details class="wiki-method"><summary>'+esc(getName(id))+' · '+values.length+'개 층</summary>'+experienceDungeonTable(values)+'</details>').join('')+'</details>';
 }
 function wikiExperience(){
  const list=wikiState.kingdom?wikiExperienceCandidates():[],seen=new Set(),picks=list.filter(x=>{const id=x.floor.dungeons[0];if(seen.has(id))return false;seen.add(id);return true;}).slice(0,5);
@@ -654,7 +660,7 @@ function wikiExperience(){
  <p class="wiki-note">표시는 1명당 귀환 기본 경험치이며 총 획득 경험치가 아닙니다. 실제 모험가 레벨이 다르면 경험치가 달라집니다. 추천 아래에서 레벨별 값을 펼쳐볼 수 있습니다.</p>
  ${yieldSettingsPanel()}<h2>현재 왕국 경험치 던전 1~5위</h2><p>왕국 ${wikiState.kingdom||'미설정'} · 후보 ${list.length}개 층 · ${seen.size}개 던전 · ${yieldSettings.experienceLevel?'모험가 Lv. '+yieldSettings.experienceLevel:'각 층 동레벨 기준'}</p>
  <div id="wiki-experience-list">${picks.length?picks.map((x,i)=>`<section class="wiki-money-entry"><h3><span class="wiki-rank">${i+1}</span>${materialFloorLink(x.floor)}</h3><div class="yield-numbers"><strong>${yieldNumber(x.perRun)} 경험치 / 1명</strong><small>1회 귀환 기본분 추정</small><small>시간당 ${yieldNumber(x.perHour)} 경험치 / 1명</small></div><p>기준 모험가 <strong>Lv. ${x.referenceLevel}</strong> · 해당 층만 반복</p>${experienceLevelTable(x)}<details class="wiki-method"><summary>계산 근거</summary><p>전투 기본분 ${yieldNumber(x.combatExperience)} + 시간 기본분 ${yieldNumber(x.timeExperience)}</p>${yieldModelEvidence(x)}</details><p><button data-guide-plan="${esc(x.floor.dungeons[0])}">출발 준비 →</button> <button data-wiki-exclude="${esc(x.floor.dungeons[0])}">아직 미개방 · 제외</button></p></section>`).join(''):!wikiState.kingdom?'<p>돈 수급과 같은 내 왕국 레벨을 설정하면 순위를 표시합니다.</p>':'<p>현재 조건에서 경험치를 얻는 층이 없습니다. 모험가 레벨·개방 지역·도달 층·탐험 시간을 확인하세요.</p>'}</div>
- ${list.length?experienceFloorTable(list):''}
+ ${list.length?(experienceTableCandidates=list,'<details class="wiki-method experience-all-floors" data-experience-expand><summary>전체 던전의 층별 경험치 보기 · '+list.length+'개 층</summary><div data-experience-content></div></details>'):''}
  <details class="wiki-method"><summary>경험치 비교 기준과 포함 범위</summary><p>모든 후보는 해당 층만 반복 탐험하는 조건으로 계산하며, 입력한 모험가 레벨과 해당 층 레벨의 차이를 경험치에 반영합니다. 입력을 비우면 해당 층과 동레벨로 계산합니다. 동레벨 귀환 기본분은 전투 누적 보상의 절반과 시간 틱의 8분의 1을 각각 절삭한 뒤 합칩니다. 이 공통 기준의 순위는 모든 모험가 레벨에서의 순위를 뜻하지 않습니다.</p><p>채집 없이 목표 층에 머무는 반복 탐험 근사입니다. 중간 층·귀환 중 경험치, 직업 행동·상자 발견·함정·클리어 보너스, 배율·상한·생존 상태는 더하지 않습니다. 반복형 클리어 전투는 시간에만 포함합니다. 도적의 숲도 경험치 후보에 포함합니다.</p></details>${yieldPolicy()}`;
 }
 function wikiParty(){const roles=[['버티는 전투 역할',['Swordsman','WarBlader','Viking','Lancer','MartialArtist'],'공격·회피가 가능한 직업과 현재 사용할 무기·방어 수단을 함께 확인하세요. 직업 이름만으로 공격을 대신 맞아주는 탱커가 보장되지는 않습니다.'],['회복과 소생',['Priest','Healer'],'프리스트는 치료·보호 마법, 힐러는 기절한 모험가 소생과 약 효과 보조가 설명되어 있습니다. 사용할 수 있는 마법·MP·약도 챙기세요.'],['공격 무효 대응',['Magician','Shaman'],'물리 공격 무효 적이 있으면 마법 공격 수단을 준비하세요. 주술사는 한 손·정령 활동·철 장비 제한을 확인해야 합니다.'],['상자와 함정 탐색',['Thief','Ranger'],'도적은 상자 탐색·자물쇠, 레인저는 자연 속 함정·상자 발견이 직업 설명에 연결됩니다. 목표 상자의 조건에 맞춰 역할을 보완하세요.'],['재료 수급 효율',['TreasureHunter','CraftSage'],'보물 사냥꾼은 직업 레벨 이하 몬스터 드롭 확률 상승, 크래프트 세이지는 도구보다 직업 레벨이 높을 때 재료 획득 시간 단축이 설명되어 있습니다.'],['길 찾기와 리더 보조',['MapCreator','Strategist','Sage'],'지도 제작자는 동굴 레벨 이상의 직업 레벨 조건과 막다른 길 감소가 안내됩니다. 전술가·현자는 각 직업 문서의 리더·이탈 관련 설명을 확인하세요.']];return '<p class="wiki-lead">살아 돌아올 수 있는 전투·회복을 먼저 갖춘 뒤, 목표 재료에 맞는 탐색·수급 역할을 더하세요. 아래는 직업 설명에 근거한 역할 분류이며 고정 인원 편성이나 생존 보장은 아닙니다.</p><div class="wiki-toc"><strong>목차</strong><a href="#wiki/party" data-wiki-anchor="party-roles">파티에 필요한 역할</a><a href="#wiki/party" data-wiki-anchor="party-safety">출발 전 점검</a></div><h2 id="party-roles">파티에 필요한 역할</h2>'+roles.map(([title,names,text])=>'<section class="wiki-role"><h3>'+title+'</h3><p>'+text+'</p><div>'+names.map(name=>rows.find(r=>r.type==='job'&&r.internal===name)).filter(Boolean).map(r=>{const building=rows.find(b=>b.type==='building'&&b.internal===(r.internal==='Ranger'?'JobRenger':'Job'+r.internal));const locked=building&&wikiState.kingdom&&building.fields.needCastleLevel>wikiState.kingdom;return '<span class="wiki-job">'+jump(r.id)+(building?'<small>훈련 시설 건설: 왕국 '+building.fields.needCastleLevel+(locked?' · 현재 왕국 조건 미달':'')+'</small>':'')+'</span>';}).join('')+'</div></section>').join('')+'<h2 id="party-safety">출발 전에 확인할 순서</h2><ol><li>목표 던전의 물리·활 공격 무효와 특수기를 확인합니다.</li><li>회복 마법·MP·약과 기절 시 회복 수단을 점검합니다.</li><li>어둠·함정과 상자 필요 아이템을 점검합니다.</li><li>재료 드롭이 목표라면 보물 사냥꾼의 적용 레벨 조건, 도구라면 크래프트 세이지 조건을 확인합니다.</li><li>길드 이벤트는 지역 고유 보정을 더한 추가 난도를 확인합니다.</li></ol><button data-guide-tab="prepare">목표 던전을 골라 구체적인 준비 확인 →</button>';}
@@ -664,7 +670,28 @@ function wikiFloorProgress(){
  return '<h2>던전별 최대 도달 층</h2><p>미설정은 전체 층을 후보로 사용합니다. 실제 도달한 층을 선택하면 그 이후 층은 추천에서 제외됩니다.</p><div class="wiki-table-wrap"><table class="wiki-table"><thead><tr><th>던전</th><th>최대 도달 층</th></tr></thead><tbody>'+dungeons.map(d=>'<tr><th>'+jump(d.id)+'</th><td><select data-wiki-max-floor="'+esc(d.id)+'" aria-label="'+esc(d.name)+' 최대 도달 층"><option value="'+d.fields.caveLevelMasters.length+'">미설정 · 전체 층</option>'+Array.from({length:d.fields.caveLevelMasters.length+1},(_,n)=>'<option value="'+n+'"'+(Object.hasOwn(wikiState.maxFloors,d.id)&&wikiState.maxFloors[d.id]===n?' selected':'')+'>'+(n?n+'층':'미도달')+'</option>').join('')+'</select></td></tr>').join('')+'</tbody></table></div>';
 }
 function wikiProgress(){const maps=rows.filter(r=>r.type==='map').sort((a,b)=>a.fields.searchlevel-b.fields.searchlevel);return '<p>왕국 레벨만 올려도 모든 던전이 바로 발견되는 것은 아닙니다. 탐색 스토어 확장과 탐색·발견 상태를 함께 반영하세요. 체크한 지도 안에서도 아직 발견하지 않은 던전은 추천 목록의 “미개방 · 제외”로 뺄 수 있습니다.</p><div class="wiki-table-wrap"><table class="wiki-table"><thead><tr><th>수급 범위에 포함</th><th>지도</th><th>탐색 스토어</th><th>왕국 조건</th></tr></thead><tbody>'+maps.map(m=>{const gate=wikiMapGate(m);return '<tr><td><input type="checkbox" data-wiki-map="'+esc(m.id)+'" aria-label="'+esc(m.name)+' 포함"'+(wikiMapAllowed(m.id)?' checked':'')+(!wikiPotentialMap(m)?' disabled':'')+'></td><th>'+jump(m.id)+'</th><td>'+gate.stage+'단계</td><td>'+gate.kingdom+' 이상'+(!wikiPotentialMap(m)?' · 현재 조건 미달':' · 탐색 후보')+'</td></tr>';}).join('')+'</tbody></table></div><p class="wiki-note">탐색 스토어 단계에 따라 지도 번호 1부터 해당 단계까지 목록을 생성하는 게임 코드와 시설 확장의 왕국 요구값을 연결했습니다. 왕국 조건은 해당 시설 단계에 필요한 하한이며, 실제 던전 발견을 뜻하지 않습니다.</p><p>추천에서 제외한 던전: '+wikiState.excluded.length+'곳</p>'+(wikiState.excluded.length?'<details><summary>제외한 던전 복원</summary>'+wikiState.excluded.filter(id=>records[id]).map(id=>'<p>'+esc(getName(id))+' <button data-wiki-restore="'+esc(id)+'">다시 포함</button></p>').join('')+'</details>':'')+'<p><button data-wiki-reset>지도·던전·층 설정 초기화</button></p>'+wikiFloorProgress()+'<h2>설정 후 다시 볼 문서</h2>'+wikiLink('materials')+' · '+wikiLink('money')+' · '+wikiLink('experience');}
-function renderWiki(){const html=wikiPage==='materials'?wikiMaterials():wikiPage==='money'?wikiMoney():wikiPage==='experience'?wikiExperience():wikiPage==='party'?wikiParty():wikiPage==='progress'?wikiProgress():wikiHome();$('wiki-article').innerHTML=html;if(wikiPage==='materials'){renderMaterialPicks();$('wiki-material-query').oninput=()=>{wikiState.query=$('wiki-material-query').value;renderMaterialPicks();};}}
+function prepareExperienceTable(){
+ const expand=document.querySelector?.('[data-experience-expand]');if(!expand)return;
+ // toggle does not bubble; each disclosure receives its own listener.
+ expand.addEventListener('toggle',()=>{
+  if(!expand.open||expand.dataset.loaded)return;
+  expand.dataset.loaded='true';
+  const groups=new Map();
+  for(const x of experienceTableCandidates){const id=x.floor.dungeons[0];if(!groups.has(id))groups.set(id,[]);groups.get(id).push(x);}
+  const host=expand.querySelector('[data-experience-content]');
+  host.innerHTML=[...groups].map(([id,values])=>'<details class="wiki-method" data-experience-dungeon="'+esc(id)+'"><summary>'+esc(getName(id))+' · '+values.length+'개 층</summary><div></div></details>').join('');
+  host.querySelectorAll('[data-experience-dungeon]').forEach(detail=>detail.addEventListener('toggle',()=>{
+   if(!detail.open||detail.dataset.loaded)return;
+   detail.dataset.loaded='true';detail.querySelector('div').innerHTML=experienceDungeonTable(groups.get(detail.dataset.experienceDungeon));
+  }));
+ });
+}
+function renderWiki(){
+ const html=wikiPage==='materials'?wikiMaterials():wikiPage==='money'?wikiMoney():wikiPage==='experience'?wikiExperience():wikiPage==='party'?wikiParty():wikiPage==='progress'?wikiProgress():wikiHome();
+ $('wiki-article').innerHTML=html;
+ if(wikiPage==='experience')prepareExperienceTable();
+ if(wikiPage==='materials'){renderMaterialPicks();$('wiki-material-query').oninput=()=>{wikiState.query=$('wiki-material-query').value;renderMaterialPicks();};}
+}
 function wikiClick(event){if(event.target.closest('[data-yield-reset]')){yieldSettings={...YIELD_DEFAULTS};try{localStorage.removeItem('aoa3-yield-model-v1');localStorage.removeItem('aoa3-yield-model-v2');}catch{}renderWiki();return true;}const anchor=event.target.closest('[data-wiki-anchor]');if(anchor){event.preventDefault?.();$(anchor.dataset.wikiAnchor)?.scrollIntoView?.({behavior:'smooth',block:'start'});return true;}const b=event.target.closest('[data-wiki]');if(b){openWiki(b.dataset.wiki);return true;}const excluded=event.target.closest('[data-wiki-exclude]');if(excluded){wikiState.excluded=[...new Set([...wikiState.excluded,excluded.dataset.wikiExclude])];wikiSave();renderWiki();return true;}const restore=event.target.closest('[data-wiki-restore]');if(restore){wikiState.excluded=wikiState.excluded.filter(id=>id!==restore.dataset.wikiRestore);wikiSave();renderWiki();return true;}if(event.target.closest('[data-wiki-reset]')){wikiState.openMaps=null;wikiState.excluded=[];wikiState.maxFloors={};wikiSave();openWiki('progress');return true;}return false;}
 
 const UI_HUBS={
@@ -690,6 +717,7 @@ function openHub(id){const h=UI_HUBS[id];if(!h)return openWiki('home');if($('det
 function uiClick(e){const hub=e.target.closest('[data-hub]');if(hub){openHub(hub.dataset.hub);return true;}const b=e.target.closest('[data-ui-kind]');if(!b)return false;uiOpen(b.dataset.uiKind,b.dataset.uiValue);return true;}
 function uiOpen(kind,value){if(kind==='type')return setType(value);if(kind==='building')return setType('building',value);if(kind==='wiki')return openWiki(value);if(kind==='guide')return openGuide(value);if(value==='guild')return showGuild();if(value==='guild-dungeons')return openGuildDungeons();}
 async function uiRoute(hash){
+ if(/^#(?:guild-record|record)\//.test(hash)&&!['core','buildings','guild'].every(resourceReady))return deferView(()=>uiRoute(hash),[],['core','buildings','guild']);
  if(hash.startsWith('#hub/'))return openHub(hash.split('/')[1]);
  if(hash.startsWith('#browse/'))return setType(hash.split('/')[1]);
  if(hash.startsWith('#buildings/'))return setType('building',hash.split('/')[1]);
@@ -704,29 +732,65 @@ const uiOpenGuide=openGuide;openGuide=function(tab){uiOpenGuide(tab);uiFinish(ui
 const uiGuildDungeons=openGuildDungeons;openGuildDungeons=function(){uiGuildDungeons();uiFinish('guild','길드 던전','#guild-dungeons');};
 const uiGuild=openGuild;openGuild=async function(){await uiGuild();uiFinish('guild','길드 안내','#guild');};
 
+// Home and category navigation are independent of the game archive.
+let coreReady=false,corePromise,viewRequest=0,pendingRetry;
+const resourcePromises=new Map();
+async function readJSON(path,message){const response=await fetch(path);if(!response.ok)throw new Error(message);return response.json();}
+function resourceReady(kind){return kind==='core'?coreReady:kind==='buildings'?!!buildingData:kind==='guildGuide'?!!guildData:!!guildDungeonData;}
+function loadResource(kind){
+ if(kind==='core')return ensureCore();
+ if(resourceReady(kind))return Promise.resolve();
+ if(!resourcePromises.has(kind))resourcePromises.set(kind,readJSON(kind==='buildings'?'data/buildings.json':kind==='guildGuide'?'data/guild.json':'data/guild-dungeons.json','추가 자료를 읽지 못했습니다.').then(data=>{if(kind==='buildings')buildingData=data;else if(kind==='guildGuide')guildData=data;else guildDungeonData=data;}).catch(error=>{resourcePromises.delete(kind);throw error;}));
+ return resourcePromises.get(kind);
+}
+function ensureCore(){
+ if(coreReady)return Promise.resolve();
+ if(!corePromise)corePromise=(async()=>{
+  const [dictionary,data,conditions]=await Promise.all([readJSON('data/terms.json','한국어 용어 사전을 읽지 못했습니다.'),readArchive(),readJSON('data/conditions.json','조건 정의를 읽지 못했습니다.')]);
+  terms=dictionary;label=terms.fieldLabels;archive=data;conditionData=conditions;records=archive.records;rows=Object.values(records);
+  const pause=()=>new Promise(resolve=>setTimeout(resolve,0));
+  for(let i=0;i<rows.length;i+=300){rows.slice(i,i+300).forEach(r=>{r.tags=itemTags(r);});await pause();}
+  lootTo.clear();lootFrom.clear();spawnTo.clear();spawnFrom.clear();shopTo.clear();shopFrom.clear();
+  for(let i=0;i<archive.loot.length;i+=1000){for(const e of archive.loot.slice(i,i+1000)){if(e.target)add(lootTo,e.target,e);add(lootFrom,e.source,e);}await pause();}
+  for(let i=0;i<archive.encounters.length;i+=1000){for(const e of archive.encounters.slice(i,i+1000)){add(spawnTo,e.monster,e);add(spawnFrom,e.source,e);}await pause();}
+  indexShops();fillSelect('map','map');fillSelect('dungeon','dungeon');coreReady=true;$('version').textContent='v'+archive.report.version;
+ })().catch(error=>{corePromise=null;throw error;});
+ return corePromise;
+}
+function viewFailure(error){$('error').hidden=false;$('error').textContent=error.message;$('rows').innerHTML='<p class="empty">자료를 준비하지 못했습니다. <button data-load-retry>다시 시도</button></p>';}
+function deferView(fn,args,dependencies=[]){
+ const ticket=++viewRequest;$('error').hidden=true;
+ if(dependencies.every(resourceReady))return fn(...args);
+ $('browser-panel').hidden=true;$('result-actions').hidden=true;$('more').hidden=true;
+ $('rows').innerHTML='<p class="empty" role="status">선택한 메뉴의 자료를 준비하고 있습니다…</p>';
+ pendingRetry=()=>deferView(fn,args,dependencies);
+ return Promise.all(dependencies.map(loadResource)).then(()=>{if(ticket===viewRequest)return fn(...args);}).catch(error=>{if(ticket===viewRequest)viewFailure(error);});
+}
+const loadedSetType=setType;setType=(...args)=>deferView(loadedSetType,args,args[0]==='building'?['core','buildings']:['core']);
+const loadedWiki=openWiki;openWiki=(...args)=>deferView(loadedWiki,args,!args[0]||args[0]==='home'?[]:['core']);
+const loadedHub=openHub;openHub=(...args)=>deferView(loadedHub,args);
+const loadedGuide=openGuide;openGuide=(...args)=>deferView(loadedGuide,args,['core','guild']);
+const loadedRecord=openRecord;openRecord=(...args)=>deferView(loadedRecord,args,['core','buildings','guild']);
+const loadedGuildDungeons=openGuildDungeons;openGuildDungeons=(...args)=>deferView(loadedGuildDungeons,args,['core','guild']);
+const loadedGuild=openGuild;openGuild=(...args)=>deferView(loadedGuild,args,['core','buildings','guild','guildGuide']);
+
 async function init(){
- const terminology=await fetch('data/terms.json');if(!terminology.ok)throw new Error('한국어 용어 사전을 읽지 못했습니다.');terms=await terminology.json();label=terms.fieldLabels;
- const buildingsResponse=await fetch('data/buildings.json');if(!buildingsResponse.ok)throw new Error('건물 성장 정보를 읽지 못했습니다.');buildingData=await buildingsResponse.json();
- const guildDungeonsResponse=await fetch('data/guild-dungeons.json');if(!guildDungeonsResponse.ok)throw new Error('길드 던전 정보를 읽지 못했습니다.');guildDungeonData=await guildDungeonsResponse.json();
- archive=await readArchive();const conditions=await fetch('data/conditions.json');if(!conditions.ok)throw new Error('조건 정의를 읽지 못했습니다.');conditionData=await conditions.json();records=archive.records;rows=Object.values(records);rows.forEach(r=>{r.tags=itemTags(r);});
- archive.loot.forEach(e=>{if(e.target)add(lootTo,e.target,e);add(lootFrom,e.source,e);});
- archive.encounters.forEach(e=>{add(spawnTo,e.monster,e);add(spawnFrom,e.source,e);});
- indexShops();
  $('navigation').innerHTML='<button data-wiki="home" class="nav-home">⌂ <span>모험 수첩</span></button><div class="nav-priority"><span class="nav-group-name">자주 찾는 수급 정보</span><button data-wiki="materials">♧ <span>재료 채집</span><span class="nav-arrow">↗</span></button><button data-wiki="money">◈ <span>돈 수급 던전</span><span class="nav-arrow">↗</span></button><button data-wiki="experience">✦ <span>경험치 던전</span><span class="nav-arrow">↗</span></button></div><div class="nav-topics"><span class="nav-group-name">주제별 자료</span>'+Object.entries(UI_HUBS).map(([id,h])=>'<button data-hub="'+id+'"><span class="nav-symbol">'+h.icon+'</span><span>'+h.name+'</span><span class="nav-arrow">›</span></button>').join('')+'</div>';
- $('version').textContent='v'+archive.report.version;
- fillSelect('map','map');fillSelect('dungeon','dungeon');
+ $('version').textContent='게임 자료 · 메뉴 선택 시 준비';
  $('workspace-switch').onclick=e=>{const b=e.target.closest('[data-workspace]');if(b){if(b.dataset.workspace==='guide')openWiki();else{if($('detail').open)$('detail').close();setType(selected);history.replaceState(null,'',location.pathname+location.search);}}};
  $('navigation').onclick=e=>{if(uiClick(e))return;if(wikiClick(e))return;if(e.target.closest('[data-view="guide"]'))return openGuide();if(e.target.closest('[data-view="guild-dungeons"]'))return openGuildDungeons();if(e.target.closest('[data-view="guild"]'))return showGuild();const b=e.target.closest('[data-type]');if(b){setType(b.dataset.type,b.dataset.buildingGroup);}};
  ['query','map','dungeon','min-level','max-level','floor','kind','tag','sort'].forEach(id=>$(id).addEventListener('input',()=>{limit=60;render();}));
  $('rows').onchange=e=>{const reached=e.target.closest('[data-wiki-max-floor]');if(reached){const id=reached.dataset.wikiMaxFloor,d=records[id],n=Number(reached.value);if(d?.type==='dungeon'&&Number.isFinite(n)){wikiState.maxFloors[id]=Math.max(0,Math.min(d.fields.caveLevelMasters.length,Math.floor(n)));wikiSave();}return;}const setting=e.target.closest('[data-yield-setting]');if(setting){const key=setting.dataset.yieldSetting;yieldSettings=cleanYieldSettings({...yieldSettings,[key]:Number(setting.value)});try{localStorage.setItem('aoa3-yield-model-v2',JSON.stringify(yieldSettings));}catch{}renderWiki();document.querySelectorAll('.yield-settings').forEach(e=>e.open=true);return;}const box=e.target.closest('[data-wiki-map]');if(box){if(!Array.isArray(wikiState.openMaps))wikiState.openMaps=rows.filter(r=>r.type==='map'&&wikiMapAllowed(r.id)).map(r=>r.id);wikiState.openMaps=wikiState.openMaps.filter(id=>id!==box.dataset.wikiMap);if(box.checked)wikiState.openMaps.push(box.dataset.wikiMap);wikiSave();}};
- $('reset').onclick=reset;$('csv').onclick=exportCSV;$('more').onclick=()=>{limit+=60;render();};
- $('rows').onclick=e=>{if(uiClick(e))return;const group=e.target.closest('[data-building-group]');if(group){setType('building',group.dataset.buildingGroup);return;}if(wikiClick(e))return;if(guideClick(e))return;if(e.target.closest('[data-view="guild-dungeons"]'))return openGuildDungeons();const guild=e.target.closest('[data-guild-record]');if(guild)return openRecord(guild.dataset.guildRecord,'guild');const b=e.target.closest('[data-id]');if(b)openRecord(b.dataset.id);};
+ $('reset').onclick=reset;$('csv').onclick=exportCSV;$('more').onclick=()=>{limit+=60;render();$('results-head').scrollIntoView?.({block:'start'});};
+ $('previous-page').onclick=()=>{limit-=60;render();$('results-head').scrollIntoView?.({block:'start'});};
+ $('list-page').onchange=()=>{limit=Number($('list-page').value)*60;render();$('results-head').scrollIntoView?.({block:'start'});};
+ $('rows').onclick=e=>{if(e.target.closest('[data-load-retry]')){pendingRetry?.();return;}if(uiClick(e))return;const group=e.target.closest('[data-building-group]');if(group){setType('building',group.dataset.buildingGroup);return;}if(wikiClick(e))return;if(guideClick(e))return;if(e.target.closest('[data-view="guild-dungeons"]'))return openGuildDungeons();const guild=e.target.closest('[data-guild-record]');if(guild)return openRecord(guild.dataset.guildRecord,'guild');const b=e.target.closest('[data-id]');if(b)openRecord(b.dataset.id);};
  $('detail-body').onclick=e=>{if(wikiClick(e))return;if(guideClick(e))return;if(e.target.closest('[data-view="guild-dungeons"]'))return openGuildDungeons();if(e.target.closest('[data-view="guild"]'))return showGuild();const trap=e.target.closest('[data-guild-trap]');if(trap)return openGuildTrap(trap.dataset.guildTrap);const guild=e.target.closest('[data-guild-record]');if(guild)return openRecord(guild.dataset.guildRecord,'guild');const b=e.target.closest('[data-id]');if(b)openRecord(b.dataset.id);};
  $('close-detail').onclick=()=>$('detail').close();$('detail').addEventListener('close',()=>history.replaceState(null,'',uiCurrentHash));
- const initialHash=location.hash;setType('dungeon');await uiRoute(initialHash);uiReady=true;
  $('brand-home').onclick=e=>{e.preventDefault?.();openWiki('home');};
  $('quick-access').onclick=e=>{if(wikiClick(e))return;};$('page-path').onclick=uiClick;
  window.addEventListener?.('popstate',async()=>{uiRestoring=true;try{await uiRoute(location.hash);}finally{uiRestoring=false;}});
+ const initialHash=location.hash;await uiRoute(initialHash);uiReady=true;
 
 }
 init().catch(error=>{$('error').hidden=false;$('error').textContent=error.message+' 새로고침해 다시 시도하세요.';$('rows').innerHTML='<p class="empty">데이터를 읽지 못했습니다.</p>';});
